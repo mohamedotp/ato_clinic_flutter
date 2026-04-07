@@ -1,0 +1,267 @@
+# خطة تحويل "عياداتي" إلى Flutter Mobile App
+
+## نظرة عامة
+
+المشروع الحالي عبارة عن **React + Vite + TypeScript** web app يعمل على **Supabase** كـ backend. الهدف هو بناء **Flutter mobile app** يشارك **نفس قاعدة بيانات Supabase** الموجودة، بدون أي تغيير في الـ backend.
+
+> [!IMPORTANT]
+> **الميزة الأساسية**: Flutter و Web سيستخدمان نفس Supabase project بالظبط — نفس الجداول، نفس الـ Auth، نفس الـ RLS policies. مش محتاج تعمل backend جديد.
+
+---
+
+## ما الموجود في الويب؟ (المرحع)
+
+| الصفحة | الوصف | الأولوية في Mobile |
+|--------|-------|-------------------|
+| `LoginPage` | تسجيل الدخول بـ Email/Password | 🔴 أساسي |
+| `DoctorDashboard` | إحصائيات اليوم للدكتور | 🔴 أساسي |
+| `Patients` | قائمة وإضافة المرضى | 🔴 أساسي |
+| `Appointments` | المواعيد اليومية | 🔴 أساسي |
+| `Visits` | الزيارات والفواتير | 🔴 أساسي |
+| `Services` | الخدمات والأسعار | 🟡 ثانوي |
+| `Users` | إدارة الموظفين | 🟡 ثانوي |
+| `Workspace` | Canvas لملاحظات المريض | 🟠 اختياري (معقدة على موبايل) |
+| `AIPage` | مساعد الذكاء الاصطناعي | 🟠 اختياري |
+| `ClinicSelector` | Super Admin | 🟡 ثانوي |
+
+---
+
+## هيكل مشروع Flutter المقترح
+
+```
+ato_clinic_flutter/
+├── lib/
+│   ├── main.dart                    # نقطة البداية
+│   ├── app.dart                     # MaterialApp + routing
+│   │
+│   ├── core/
+│   │   ├── supabase_config.dart     # Supabase keys (نفس الـ .env)
+│   │   ├── theme/
+│   │   │   ├── app_theme.dart       # ألوان وخطوط النظام
+│   │   │   └── app_colors.dart      # لوحة الألوان
+│   │   ├── constants/
+│   │   │   └── app_strings.dart     # النصوص العربية
+│   │   └── router/
+│   │       └── app_router.dart      # go_router navigation
+│   │
+│   ├── models/                      # نفس الـ types/index.ts
+│   │   ├── profile.dart
+│   │   ├── patient.dart
+│   │   ├── appointment.dart
+│   │   ├── visit.dart
+│   │   ├── service.dart
+│   │   └── clinic.dart
+│   │
+│   ├── services/                    # Supabase API calls
+│   │   ├── auth_service.dart
+│   │   ├── patient_service.dart
+│   │   ├── appointment_service.dart
+│   │   ├── visit_service.dart
+│   │   └── clinic_service.dart
+│   │
+│   ├── providers/                   # State Management (Riverpod)
+│   │   ├── auth_provider.dart       # نفس useAuth.tsx
+│   │   ├── patients_provider.dart
+│   │   ├── appointments_provider.dart
+│   │   └── visits_provider.dart
+│   │
+│   └── screens/
+│       ├── auth/
+│       │   └── login_screen.dart
+│       ├── dashboard/
+│       │   └── dashboard_screen.dart
+│       ├── patients/
+│       │   ├── patients_list_screen.dart
+│       │   ├── patient_detail_screen.dart
+│       │   └── add_patient_screen.dart
+│       ├── appointments/
+│       │   ├── appointments_screen.dart
+│       │   └── add_appointment_screen.dart
+│       ├── visits/
+│       │   ├── visits_screen.dart
+│       │   └── visit_detail_screen.dart
+│       └── shared/
+│           ├── widgets/
+│           │   ├── stat_card.dart
+│           │   ├── patient_card.dart
+│           │   └── appointment_tile.dart
+│           └── bottom_nav.dart
+```
+
+---
+
+## المرحلة التنفيذية
+
+### 🏗️ المرحلة 1: إعداد المشروع (يوم 1)
+
+1. **تثبيت Flutter SDK** على الجهاز
+2. **إنشاء المشروع**:
+   ```bash
+   flutter create ato_clinic_flutter --org com.atoclinic
+   ```
+3. **إضافة الـ packages** في `pubspec.yaml`:
+   ```yaml
+   dependencies:
+     supabase_flutter: ^2.x      # مكافئ @supabase/supabase-js
+     flutter_riverpod: ^2.x      # مكافئ React Context/useState
+     go_router: ^14.x            # مكافئ react-router-dom
+     shared_preferences: ^2.x    # حفظ الـ session محلياً
+     intl: ^0.19.x               # تنسيق التواريخ
+     cached_network_image: ^3.x  # عرض صور المرضى
+     flutter_localizations: sdk  # دعم العربية RTL
+   ```
+
+### 🔐 المرحلة 2: الـ Auth (يوم 1-2)
+
+نقل منطق `useAuth.tsx` إلى `auth_provider.dart`:
+
+```dart
+// نفس المنطق بالظبط
+final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
+  return AuthNotifier(Supabase.instance.client);
+});
+
+class AuthNotifier extends StateNotifier<AuthState> {
+  // signIn, signOut, fetchProfile كلها موجودة بالفعل في السيرفر
+}
+```
+
+**شاشة Login**: نفس تصميم `LoginPage.tsx` بس بـ Flutter material design
+
+### 📱 المرحلة 3: الشاشات الأساسية (يوم 2-5)
+
+#### Dashboard Screen
+- نفس إحصائيات `DoctorDashboard.tsx`
+- Cards: مرضى اليوم / مواعيد اليوم / إجمالي الإيرادات
+- Bottom Navigation Bar بدل Sidebar
+
+#### Patients Screen
+- قائمة بـ `ListView.builder`
+- Search bar في الأعلى
+- Floating Action Button لإضافة مريض
+- Swipe to delete / Edit
+
+#### Appointments Screen  
+- قائمة مواعيد اليوم
+- Calendar picker لاختيار يوم آخر
+- Status chips (scheduled / confirmed / completed)
+
+#### Visits Screen
+- قائمة الزيارات مع الفواتير
+- تفاصيل الزيارة: التشخيص، العلاج، التكلفة
+
+### 🎨 المرحلة 4: الـ Theme والتصميم (يوم 3)
+
+نفس نظام الألوان الموجود في الويب:
+```dart
+class AppColors {
+  // استخراج الألوان من index.css و App.css
+  static const primary   = Color(0xFF...);  // نفس --primary
+  static const background= Color(0xFF...);  // نفس --background
+  // + دعم RTL للعربية
+}
+```
+
+**RTL Support**: Flutter يدعم RTL بشكل أصلي:
+```dart
+MaterialApp(
+  locale: Locale('ar'),
+  textDirection: TextDirection.rtl,
+)
+```
+
+### 🛠️ المرحلة 5: اختبار و Deploy (يوم 5-6)
+
+- اختبار على Android emulator.
+- اختبار على iOS simulator (إذا كان لديك Mac).
+- Build APK للـ Android:
+  ```bash
+  flutter build apk --release
+  ```
+- رفع على Google Play Store / App Store.
+
+### 🧠 المرحلة 6: الميزات المتقدمة (AI & Workspace) (يوم 7+)
+
+#### 1. مساعد الذكاء الاصطناعي (AIPage)
+- استخدام `supabase_flutter` لاستدعاء **Edge Functions** التي تتعامل مع OpenAI/Anthropic.
+- واجهة Chat بسيطة مع `ListView` وسرعة استجابة عالية.
+
+#### 2. صفحة الملاحظات (Workspace)
+- **الـحل المقترح**: بدلاً من Canvas كامل على الموبايل، نستخدم **Rich Text Editor** أو **Markdown Editor** (مثل `flutter_quill`).
+- دعم رفع الصور من الكاميرا مباشرة إلى Supabase Storage.
+
+---
+
+## 🌍 دعم اللغة العربية (Localization)
+
+بما أن التطبيق "عياداتي" موجه لجمهور عربي، يجب التعامل مع الـ RTL بدقة:
+
+1. **الخط**: استخدام خط "Cairo" أو "Inter" بدعم عربي ممتاز.
+2. **الترجمة**: إنشاء ملفات `ar.json` و `en.json` في `assets/l10n/`.
+3. **الأيقونات**: التأكد من قلب الأيقونات التي لها اتجاه (مثل الأسهم) تلقائياً في وضع RTL.
+
+---
+
+## 🔒 الأمان (Security & RLS)
+
+- سيتم استخدام الـ **JWT** المخزن في `shared_preferences` تلقائياً بواسطة `supabase_flutter`.
+- سيتم التأكد من أن كل استعلام (Query) يمر عبر الـ **RLS policies** الموجودة في قاعدة البيانات لضمان خصوصية بيانات المرضى.
+
+---
+
+## 📝 قائمة المهام للبدء (Checklist)
+
+- [ ] إعداد `supabase_config.dart` بروابط المشروع الحقيقي.
+- [ ] بناء الـ `ProfileModel` والـ `AuthService`.
+- [ ] تصميم شاشة الدخول (Login).
+- [ ] بناء الـ Bottom Nav والـ Dashboard الأساسي.
+- [ ] ربط "قائمة المرضى" مع Supabase.
+
+---
+
+## 🏗️ نموذج برمجي (Data Modeling Example)
+
+لتحويل بيانات Supabase إلى Objects في Flutter، نستخدم النمط التالي (مثل `patient.dart`):
+
+```dart
+class Patient {
+  final String id;
+  final String name;
+  final String phone;
+
+  Patient({required this.id, required this.name, required this.phone});
+
+  // لتحويل JSON القادم من Supabase إلى Object
+  factory Patient.fromJson(Map<String, dynamic> json) {
+    return Patient(
+      id: json['id'],
+      name: json['full_name'], // تأكد من مطابقة اسم العمود في DB
+      phone: json['phone'] ?? '',
+    );
+  }
+}
+```
+
+---
+
+## 🔗 روابط هامة للمرجعية
+
+| المصدر | الرابط |
+|--------|--------|
+| Supabase Flutter Docs | [supabase.com/docs/guides/getting-started/quickstarts/flutter](https://supabase.com/docs/guides/getting-started/quickstarts/flutter) |
+| Riverpod Official Docs | [riverpod.dev](https://riverpod.dev) |
+| GoRouter Docs | [pub.dev/packages/go_router](https://pub.dev/packages/go_router) |
+
+---
+
+## 🏁 الخلاصة والخطوات التالية
+
+التطبيق الآن جاهز للتنفيذ بناءً على هذه الخطة. سيوفر "عياداتي" للجوال تجربة Native كاملة مع الحفاظ على تزامن البيانات مع نسخة الويب.
+
+1. **ابدأ بـ `main.dart`** وتهيئته مع Supabase.
+2. **انتقل لإنشاء الـ `AuthService`** لتأمين الدخول.
+3. **صمم الـ `Dashboard`** كأول نقطة تفاعل للمستخدم.
+
+> [!TIP]
+> تذكر أن القوة الكبرى هنا هي أنك لن تعدل حرفاً واحداً في الـ SQL أو الـ Backend. الموبايل هو مجرد "واجهة جديدة" لنفس البيانات.
+
