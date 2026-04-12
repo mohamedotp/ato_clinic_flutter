@@ -180,7 +180,7 @@ MaterialApp(
   ```
 - رفع على Google Play Store / App Store.
 
-### 🧠 المرحلة 6: الميزات المتقدمة (AI & Workspace) (يوم 7+)
+### 🧠 المرحلة 6: الميزات المتقدمة (AI & Workspace) (يوم 7-10)
 
 #### 1. مساعد الذكاء الاصطناعي (AIPage)
 - استخدام `supabase_flutter` لاستدعاء **Edge Functions** التي تتعامل مع OpenAI/Anthropic.
@@ -189,6 +189,29 @@ MaterialApp(
 #### 2. صفحة الملاحظات (Workspace)
 - **الـحل المقترح**: بدلاً من Canvas كامل على الموبايل، نستخدم **Rich Text Editor** أو **Markdown Editor** (مثل `flutter_quill`).
 - دعم رفع الصور من الكاميرا مباشرة إلى Supabase Storage.
+
+### 🖨️ المرحلة 7: التقارير والفواتير (PDF & Printing) (يوم 10-12)
+
+1. **توليد الـ PDF**: استخدام package `pdf` لعمل فواتير الزيارات وتقارير المرضى.
+2. **الطباعة**: استخدام `printing` للطباعة المباشرة من الموبايل أو مشاركة الـ PDF عبر WhatsApp.
+3. **تصميم الهوية**: إضافة شعار العيادة وبيانات التواصل في ترويسة التقارير.
+
+### 📶 المرحلة 8: العمل بدون إنترنت (Offline Support) (يوم 12-14)
+
+1. **التخزين المحلي**: استخدام `Isar` أو `Sqflite` لتخزين قائمة المرضى والمواعيد محلياً.
+2. **المزامنة**: تحسين الـ UX بحيث تظهر البيانات المخزنة فوراً، ويتم التحديث من Supabase في الخلفية.
+3. **تحميل الصور**: عمل Cache للصور باستخدام `cached_network_image`.
+
+### 🔔 المرحلة 9: التنبيهات (Push Notifications) (يوم 14-16)
+
+1. **إعداد OneSignal أو Firebase**: لإرسال تنبيهات بالمواعيد القادمة.
+2. **Edge Functions**: عمل Trigger من Supabase عند إضافة موعد جديد لإرسال Notification للمساعد أو الدكتور.
+
+### 🚀 المرحلة 10: الـ CI/CD والنشر (يوم 17+)
+
+1. **GitHub Actions**: أتمتة بناء الـ APK والـ IPA عند كل `git push`.
+2. **Play Store Console**: إعداد حساب المطور وتجهيز الصور والوصف.
+3. **App Store Connect**: تجهيز شهادات الـ iOS (في حال وجود Mac).
 
 ---
 
@@ -242,6 +265,17 @@ class Patient {
 }
 ```
 
+### 🔒 الأمان (Security & Data Protection)
+
+1. **Secure Storage**: استخدام `flutter_secure_storage` لحفظ الـ JWTTokens بدلاً من `shared_preferences` لزيادة الأمان.
+2. **Biometric Auth**: (اختياري) إضافة بصمة الإصبع أو الوجه لفتح التطبيق.
+3. **SSL Pinning**: لضمان عدم اعتراض البيانات بين التطبيق و Supabase.
+
+### 📊 المتابعة والتحليل (Monitoring & Analytics)
+
+1. **Sentry/LogRocket**: لتتبع الأخطاء (Crashes) التي تحدث للمستخدمين وحلها فوراً.
+2. **Posthog/Firebase Analytics**: لفهم كيفية استخدام الأطباء للتطبيق (أي الشاشات أكثر استخداماً).
+
 ---
 
 ## 🔗 روابط هامة للمرجعية
@@ -256,13 +290,43 @@ class Patient {
 
 ## 🏁 الخلاصة والخطوات التالية
 
-التطبيق الآن جاهز للتنفيذ بناءً على هذه الخطة. سيوفر "عياداتي" للجوال تجربة Native كاملة مع الحفاظ على تزامن البيانات مع نسخة الويب.
+التطبيق الآن جاهز للتنفيذ بناءً على هذه الخطة المحدثة. سيوفر "عياداتي" للجوال تجربة Native كاملة مع الحفاظ على تزامن البيانات مع نسخة الويب.
 
 1. **ابدأ بـ `main.dart`** وتهيئته مع Supabase.
 2. **انتقل لإنشاء الـ `AuthService`** لتأمين الدخول.
 3. **صمم الـ `Dashboard`** كأول نقطة تفاعل للمستخدم.
 
+---
+
+## 🏛️ رسم توضيحي للمعمارية (Architecture Diagram)
+
+```mermaid
+graph TD
+    A[Flutter App UI] --> B[Riverpod Providers]
+    B --> C[Repository / Services]
+    C --> D[Supabase Client]
+    D --> E[(Supabase PostgreSQL)]
+    D --> F[Supabase Auth]
+    D --> G[Supabase Storage]
+    
+    subgraph "Logic & State"
+    B
+    C
+    end
+    
+    subgraph "External"
+    E
+    F
+    G
+    end
+```
+
 > [!TIP]
 > تذكر أن القوة الكبرى هنا هي أنك لن تعدل حرفاً واحداً في الـ SQL أو الـ Backend. الموبايل هو مجرد "واجهة جديدة" لنفس البيانات.
 
  to run code use this command : flutter run -d emulator-5554 --no-enable-impeller 
+=======
+flutter pub get
+flutter doctor --android-licenses
+flutter run
+>>>>>>> e921cbddf4dd8c4cb634cfe41a7c8a8e4dd3792a

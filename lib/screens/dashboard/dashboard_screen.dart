@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/appointments_provider.dart';
+import '../../providers/patients_provider.dart';
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
@@ -11,9 +12,10 @@ class DashboardScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final authState = ref.watch(authProvider);
     final appointmentsAsync = ref.watch(appointmentsProvider);
+    final patientsAsync = ref.watch(patientsProvider);
     
     // Theme Colors
-    const primaryColor = Color(0xFF006D63); // Dark Teal from image
+    const primaryColor = Color(0xFF006D63); 
     const scaffoldBg = Color(0xFFF8FAF9);
 
     return Scaffold(
@@ -51,37 +53,21 @@ class DashboardScreen extends ConsumerWidget {
                     ),
                     const Spacer(),
                     const Text(
-                      'Clinic Link Assist',
+                      'عياداتي',
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
-                        color: Color(0xFF2C3E50),
+                        color: primaryColor,
                       ),
                     ),
                     const SizedBox(width: 8),
-                    Stack(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: const Icon(Icons.notifications_none, color: primaryColor),
-                        ),
-                        Positioned(
-                          right: 8,
-                          top: 8,
-                          child: Container(
-                            width: 8,
-                            height: 8,
-                            decoration: const BoxDecoration(
-                              color: Colors.red,
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                        ),
-                      ],
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(Icons.notifications_none, color: primaryColor),
                     ),
                   ],
                 ),
@@ -95,10 +81,14 @@ class DashboardScreen extends ConsumerWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                 child: Row(
                   children: [
-                    const Expanded(
+                    Expanded(
                       child: _MiniStatCard(
                         title: 'المرضى اليوم',
-                        value: '34',
+                        value: patientsAsync.when(
+                          data: (items) => items.length.toString(),
+                          loading: () => '...',
+                          error: (_, __) => '0',
+                        ),
                         icon: Icons.people_outline,
                         iconColor: primaryColor,
                       ),
@@ -108,7 +98,7 @@ class DashboardScreen extends ConsumerWidget {
                       child: _MiniStatCard(
                         title: 'مكتمل',
                         value: appointmentsAsync.when(
-                          data: (items) => items.where((a) => a.status == 'completed').length.toString(),
+                          data: (items) => items.where((a) => a.status == AppointmentStatus.completed).length.toString(),
                           loading: () => '...',
                           error: (_, __) => '0',
                         ),
@@ -188,13 +178,13 @@ class DashboardScreen extends ConsumerWidget {
                 color: Color(0xFFE8F5E9),
                 iconColor: Color(0xFF4CAF50),
               ),
-              const SizedBox(height: 100), // Space for FAB/BottomNav
+              const SizedBox(height: 100), 
             ],
           ),
         ),
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () {}, // Add logic
+        onPressed: () => context.push('/patients'),
         backgroundColor: primaryColor,
         child: const Icon(Icons.add, color: Colors.white, size: 30),
       ),
@@ -205,7 +195,7 @@ class DashboardScreen extends ConsumerWidget {
         selectedItemColor: primaryColor,
         unselectedItemColor: Colors.grey,
         items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.grid_view_rounded), label: 'لوحة القيادة'),
+          BottomNavigationBarItem(icon: Icon(Icons.grid_view_rounded), label: 'الرئيسية'),
           BottomNavigationBarItem(icon: Icon(Icons.people_outline), label: 'المرضى'),
           BottomNavigationBarItem(icon: Icon(Icons.calendar_month_outlined), label: 'المواعيد'),
           BottomNavigationBarItem(icon: Icon(Icons.settings_outlined), label: 'الإعدادات'),
@@ -241,7 +231,6 @@ class _RevenueCard extends StatelessWidget {
       ),
       child: Stack(
         children: [
-          // Background graphic
           Positioned(
             left: -20,
             bottom: -20,
@@ -370,7 +359,7 @@ class _MiniStatCard extends StatelessWidget {
 }
 
 class _AppointmentListCard extends StatelessWidget {
-  final dynamic appointment; // Replace with your model
+  final dynamic appointment; 
   const _AppointmentListCard({required this.appointment});
 
   @override
@@ -408,7 +397,7 @@ class _AppointmentListCard extends StatelessWidget {
               const Spacer(),
               const CircleAvatar(
                 radius: 20,
-                backgroundImage: AssetImage('assets/images/user1.png'), // Replace with actual
+                backgroundImage: AssetImage('assets/images/user1.png'), 
               ),
             ],
           ),
