@@ -48,7 +48,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   _emailController.text,
                   _passwordController.text,
                 );
-                setState(() => _isLoading = false);
+                if (mounted) {
+                  setState(() => _isLoading = false);
+                }
               },
               child: _isLoading ? const CircularProgressIndicator() : const Text('Sign In'),
             ),

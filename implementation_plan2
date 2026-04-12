@@ -265,3 +265,4 @@ class Patient {
 > [!TIP]
 > تذكر أن القوة الكبرى هنا هي أنك لن تعدل حرفاً واحداً في الـ SQL أو الـ Backend. الموبايل هو مجرد "واجهة جديدة" لنفس البيانات.
 
+ to run code use this command : flutter run -d emulator-5554 --no-enable-impeller 
