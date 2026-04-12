@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/appointments_provider.dart';
 import '../../providers/patients_provider.dart';
+import '../../models/appointment.dart';
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
