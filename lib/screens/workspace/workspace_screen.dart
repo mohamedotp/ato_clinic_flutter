@@ -18,6 +18,7 @@ import 'nodes/prescription_node_widget.dart';
 import 'nodes/followup_node_widget.dart';
 import 'nodes/alert_node_widget.dart';
 import 'nodes/file_node_widget.dart';
+import 'nodes/voice_node_widget.dart';
 
 class WorkspaceScreen extends ConsumerStatefulWidget {
   final String patientId;
@@ -99,6 +100,7 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
       case 'todo': return 'قائمة مهام';
       case 'followup': return 'متابعة';
       case 'file': return 'ملف مرفق';
+      case 'voice': return 'تسجيل صوتي';
       default: return 'ملاحظة جديدة';
     }
   }
@@ -109,6 +111,7 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
       case 'prescription': return '#ecfdf5';
       case 'alert': return '#fef2f2';
       case 'file': return '#f3f4f6';
+      case 'voice': return '#eef2ff';
       default: return '#ffffff';
     }
   }
@@ -182,6 +185,7 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
                 _ModalAction(icon: Icons.text_snippet, label: 'ملاحظة', color: Colors.orange, onTap: () { context.pop(); _handleAddNote('note'); }),
                 _ModalAction(icon: Icons.check_circle, label: 'مهام', color: Colors.green, onTap: () { context.pop(); _handleAddNote('todo'); }),
                 _ModalAction(icon: Icons.event, label: 'متابعة', color: Colors.purple, onTap: () { context.pop(); _handleAddNote('followup'); }),
+                _ModalAction(icon: Icons.mic, label: 'صوت', color: Colors.indigo, onTap: () { context.pop(); _handleAddNote('voice'); }),
                 _ModalAction(icon: Icons.warning, label: 'تنبيه', color: Colors.red, onTap: () { context.pop(); _handleAddNote('alert'); }),
                 _ModalAction(icon: Icons.image, label: 'صورة', color: Colors.indigo, onTap: () { context.pop(); _pickAndUploadImage(); }),
                 _ModalAction(icon: Icons.attach_file, label: 'ملف', color: Colors.blueGrey, onTap: () { context.pop(); _handleAddNote('file'); }),
@@ -416,6 +420,7 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
       case 'todo': return TodoNodeWidget(note: note, isSelected: isSelected, onTap: onTap, onDelete: onDelete, onTitleChange: onTitleChange, onColorChange: onColorChange, onContentChange: onContentChange, onPositionUpdate: onPositionUpdate, onConnectStart: onConnectStart, onToggleLock: onToggleLock, onClearConnections: onClearConnections);
       case 'image': return ImageNodeWidget(note: note, isSelected: isSelected, onTap: onTap, onDelete: onDelete, onTitleChange: onTitleChange, onColorChange: onColorChange, onPositionUpdate: onPositionUpdate, onConnectStart: onConnectStart, onToggleLock: onToggleLock, onClearConnections: onClearConnections);
       case 'file': return FileNodeWidget(note: note, isSelected: isSelected, onTap: onTap, onDelete: onDelete, onTitleChange: onTitleChange, onColorChange: onColorChange, onPositionUpdate: onPositionUpdate, onConnectStart: onConnectStart, onToggleLock: onToggleLock, onClearConnections: onClearConnections);
+      case 'voice': return VoiceNodeWidget(note: note, isSelected: isSelected, onTap: onTap, onDelete: onDelete, onTitleChange: onTitleChange, onColorChange: onColorChange, onMetadataChange: onMetadataChange, onPositionUpdate: onPositionUpdate, onConnectStart: onConnectStart, onToggleLock: onToggleLock, onClearConnections: onClearConnections);
       default: return TextNodeWidget(note: note, isSelected: isSelected, onTap: onTap, onDelete: onDelete, onTitleChange: onTitleChange, onColorChange: onColorChange, onContentChange: onContentChange, onPositionUpdate: onPositionUpdate, onConnectStart: onConnectStart, onToggleLock: onToggleLock, onClearConnections: onClearConnections);
     }
   }
