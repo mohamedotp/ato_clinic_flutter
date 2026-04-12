@@ -330,3 +330,5 @@ flutter pub get
 flutter doctor --android-licenses
 flutter run
 >>>>>>> e921cbddf4dd8c4cb634cfe41a7c8a8e4dd3792a
+للتشغيل على المحاكي
+flutter run -d emulator-5554

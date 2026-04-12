@@ -56,7 +56,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               width: 250,
               height: 250,
               decoration: BoxDecoration(
-                color: const Color(0xFF1ABC9C).withOpacity(0.05), // Emerald-like
+                color: Color(0xFF1ABC9C).withOpacity(0.05), // Emerald-like
                 shape: BoxShape.circle,
               ),
             ),

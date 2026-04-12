@@ -5,6 +5,10 @@ import '../../screens/auth/login_screen.dart';
 import '../../screens/dashboard/dashboard_screen.dart';
 
 import '../../screens/patients/patients_list_screen.dart';
+import '../../screens/services/services_list_screen.dart';
+import '../../screens/appointments/appointments_list_screen.dart';
+import '../../screens/visits/visits_list_screen.dart';
+import '../../screens/workspace/workspace_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authProvider);
@@ -38,6 +42,25 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/patients',
         builder: (context, state) => const PatientsListScreen(),
+      ),
+      GoRoute(
+        path: '/services',
+        builder: (context, state) => const ServicesListScreen(),
+      ),
+      GoRoute(
+        path: '/appointments',
+        builder: (context, state) => const AppointmentsListScreen(),
+      ),
+      GoRoute(
+        path: '/visits',
+        builder: (context, state) => const VisitsListScreen(),
+      ),
+      GoRoute(
+        path: '/workspace/:patientId',
+        builder: (context, state) {
+          final patientId = state.pathParameters['patientId']!;
+          return WorkspaceScreen(patientId: patientId);
+        },
       ),
     ],
   );

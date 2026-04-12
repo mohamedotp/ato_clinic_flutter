@@ -11,6 +11,7 @@ class Profile {
   final String fullName;
   final String? avatarUrl;
   final UserRole? role;
+  final String? clinicId;
 
   Profile({
     required this.id,
@@ -18,17 +19,19 @@ class Profile {
     required this.fullName,
     this.avatarUrl,
     this.role,
+    this.clinicId,
   });
 
   factory Profile.fromJson(Map<String, dynamic> json) {
     return Profile(
       id: json['id'],
-      email: json['email'],
-      fullName: json['full_name'],
+      email: json['email'] ?? '',
+      fullName: json['full_name'] ?? '',
       avatarUrl: json['avatar_url'],
       role: json['role'] != null 
-          ? UserRole.values.byName(json['role']) 
+          ? UserRole.values.where((e) => e.name == json['role']).firstOrNull 
           : null,
+      clinicId: json['clinic_id'],
     );
   }
 
@@ -39,6 +42,7 @@ class Profile {
       'full_name': fullName,
       'avatar_url': avatarUrl,
       'role': role?.name,
+      'clinic_id': clinicId,
     };
   }
 }

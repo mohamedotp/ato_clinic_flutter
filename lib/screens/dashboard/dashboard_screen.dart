@@ -5,6 +5,7 @@ import '../../providers/auth_provider.dart';
 import '../../providers/appointments_provider.dart';
 import '../../providers/patients_provider.dart';
 import '../../models/appointment.dart';
+import '../../widgets/modals/add_edit_appointment_modal.dart';
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
@@ -77,43 +78,100 @@ class DashboardScreen extends ConsumerWidget {
               // 2. Revenue Card
               const _RevenueCard(),
 
-              // 3. Mini Stats
+
+              // 3. Quick Actions Grid
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+                child: Text(
+                  'روابط سريعة',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+              ),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _QuickActionCard(
+                            title: 'المرضى',
+                            icon: Icons.people_outline,
+                            color: const Color(0xFF00302D),
+                            onTap: () => context.push('/patients'),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: _QuickActionCard(
+                            title: 'المواعيد',
+                            icon: Icons.calendar_month_outlined,
+                            color: Colors.white,
+                            textColor: Colors.black,
+                            onTap: () => context.push('/appointments'),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _QuickActionCard(
+                            title: 'اضافة موعد',
+                            icon: Icons.add_alarm_outlined,
+                            color: const Color(0xFFF0FDF4),
+                            textColor: const Color(0xFF166534),
+                            onTap: () => AddEditAppointmentModal.show(context),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: _QuickActionCard(
+                            title: 'الزيارات',
+                            icon: Icons.history_edu_outlined,
+                            color: Colors.white,
+                            textColor: Colors.black,
+                            onTap: () => context.push('/visits'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+
+              // 4. Mini Stats Summary
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 25),
                 child: Row(
                   children: [
                     Expanded(
-                      child: _MiniStatCard(
-                        title: 'المرضى اليوم',
-                        value: patientsAsync.when(
-                          data: (items) => items.length.toString(),
-                          loading: () => '...',
-                          error: (_, __) => '0',
-                        ),
-                        icon: Icons.people_outline,
-                        iconColor: primaryColor,
+                      child: _SummaryCard(
+                        title: 'إجمالي المرضى',
+                        value: patientsAsync.when(data: (p) => p.length.toString(), loading: () => '...', error: (_, __) => '0'),
+                        icon: Icons.people_alt_outlined,
+                        color: const Color(0xFFE3F2FD),
+                        iconColor: Colors.blue,
                       ),
                     ),
                     const SizedBox(width: 16),
                     Expanded(
-                      child: _MiniStatCard(
-                        title: 'مكتمل',
-                        value: appointmentsAsync.when(
-                          data: (items) => items.where((a) => a.status == AppointmentStatus.completed).length.toString(),
-                          loading: () => '...',
-                          error: (_, __) => '0',
-                        ),
+                      child: _SummaryCard(
+                        title: 'زيارات اليوم',
+                        value: '12',
                         icon: Icons.calendar_today_outlined,
-                        iconColor: primaryColor,
+                        color: const Color(0xFFE8F5E9),
+                        iconColor: Colors.green,
                       ),
                     ),
                   ],
                 ),
               ),
 
-              // 4. Today's Appointments Section
+              // 5. Today's Appointments Section
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 5),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -130,7 +188,7 @@ class DashboardScreen extends ConsumerWidget {
               ),
 
               SizedBox(
-                height: 160,
+                height: 220,
                 child: appointmentsAsync.when(
                   data: (appointments) {
                     if (appointments.isEmpty) {
@@ -150,7 +208,7 @@ class DashboardScreen extends ConsumerWidget {
                 ),
               ),
 
-              // 5. Recent Activity
+              // 6. Recent Activity
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 20, vertical: 20),
                 child: Text(
@@ -195,11 +253,17 @@ class DashboardScreen extends ConsumerWidget {
         type: BottomNavigationBarType.fixed,
         selectedItemColor: primaryColor,
         unselectedItemColor: Colors.grey,
+        currentIndex: 0,
+        onTap: (index) {
+          if (index == 1) context.push('/patients');
+          if (index == 2) context.push('/appointments');
+          if (index == 3) context.push('/visits'); // Changed settings to visits for now
+        },
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.grid_view_rounded), label: 'الرئيسية'),
           BottomNavigationBarItem(icon: Icon(Icons.people_outline), label: 'المرضى'),
           BottomNavigationBarItem(icon: Icon(Icons.calendar_month_outlined), label: 'المواعيد'),
-          BottomNavigationBarItem(icon: Icon(Icons.settings_outlined), label: 'الإعدادات'),
+          BottomNavigationBarItem(icon: Icon(Icons.history_edu_outlined), label: 'الزيارات'),
         ],
       ),
     );
@@ -224,7 +288,7 @@ class _RevenueCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF006D63).withOpacity(0.3),
+            color: Color(0xFF006D63).withOpacity(0.3),
             blurRadius: 15,
             offset: const Offset(0, 8),
           ),
@@ -297,16 +361,73 @@ class _RevenueCard extends StatelessWidget {
   }
 }
 
-class _MiniStatCard extends StatelessWidget {
+class _QuickActionCard extends StatelessWidget {
+  final String title;
+  final IconData icon;
+  final Color color;
+  final Color textColor;
+  final VoidCallback onTap;
+
+  const _QuickActionCard({
+    required this.title,
+    required this.icon,
+    required this.color,
+    this.textColor = Colors.white,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        height: 100,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(24),
+          border: color == Colors.white ? Border.all(color: Colors.grey[200]!) : null,
+          boxShadow: [
+            if (color != Colors.white)
+              BoxShadow(
+                color: color.withOpacity(0.3),
+                blurRadius: 10,
+                offset: const Offset(0, 5),
+              ),
+          ],
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: textColor, size: 28),
+            const SizedBox(height: 8),
+            Text(
+              title,
+              style: TextStyle(
+                color: textColor,
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SummaryCard extends StatelessWidget {
   final String title;
   final String value;
   final IconData icon;
+  final Color color;
   final Color iconColor;
 
-  const _MiniStatCard({
+  const _SummaryCard({
     required this.title,
     required this.value,
     required this.icon,
+    required this.color,
     required this.iconColor,
   });
 
@@ -316,40 +437,30 @@ class _MiniStatCard extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.02),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.grey[50]!),
       ),
-      child: Stack(
+      child: Row(
         children: [
-          Positioned(
-            right: 0,
-            top: 0,
-            child: Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: iconColor.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(icon, color: iconColor, size: 20),
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: color,
+              borderRadius: BorderRadius.circular(16),
             ),
+            child: Icon(icon, color: iconColor, size: 24),
           ),
+          const Spacer(),
           Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              const SizedBox(height: 30),
               Text(
                 value,
-                style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: Colors.black87),
               ),
               Text(
                 title,
-                style: const TextStyle(color: Colors.grey, fontSize: 13),
+                style: const TextStyle(color: Colors.grey, fontSize: 11, fontWeight: FontWeight.bold),
               ),
             ],
           ),
@@ -403,23 +514,25 @@ class _AppointmentListCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
-          const Align(
-            alignment: Alignment.centerRight,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(
-                  'سارة محمد',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                ),
-                Text(
-                  'مراجعة عامة',
-                  style: TextStyle(color: Colors.grey, fontSize: 13),
-                ),
-              ],
+          const Flexible(
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    'سارة محمد',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                  ),
+                  Text(
+                    'مراجعة عامة',
+                    style: TextStyle(color: Colors.grey, fontSize: 13),
+                  ),
+                ],
+              ),
             ),
           ),
-          const Spacer(),
+          const SizedBox(height: 12),
           Row(
             children: [
               Container(
