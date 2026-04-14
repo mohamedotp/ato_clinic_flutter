@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../providers/clinic_provider.dart';
 import '../../models/clinic.dart';
+import '../../providers/auth_provider.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -14,6 +15,22 @@ class SettingsScreen extends ConsumerStatefulWidget {
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   final List<String> _days = ['السبت', 'الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة'];
   bool _isSaving = false;
+  late TextEditingController _clinicNameController;
+  late TextEditingController _userNameController;
+
+  @override
+  void initState() {
+    super.initState();
+    _clinicNameController = TextEditingController();
+    _userNameController = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _clinicNameController.dispose();
+    _userNameController.dispose();
+    super.dispose();
+  }
 
   Future<void> _updateSettings(Clinic currentClinic, Map<String, dynamic> updates) async {
     setState(() => _isSaving = true);
@@ -26,6 +43,22 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('فشل الحفظ: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
+  }
+
+  Future<void> _updateProfile(String name) async {
+    setState(() => _isSaving = true);
+    try {
+      await ref.read(authProvider.notifier).updateProfile({'full_name': name});
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم تحديث الملف الشخصي')));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('فشل التحديث: $e')));
       }
     } finally {
       if (mounted) setState(() => _isSaving = false);
@@ -59,20 +92,36 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     final clinicAsync = ref.watch(clinicProvider);
+    final authState = ref.watch(authProvider);
     const primaryColor = Color(0xFF006D63);
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAF9),
       appBar: AppBar(
-        title: const Text('إعدادات العيادة', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text('الإعدادات العامة', style: TextStyle(fontWeight: FontWeight.bold)),
         centerTitle: true,
         elevation: 0,
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,
+        actions: [
+          if (_isSaving)
+            const Padding(
+              padding: EdgeInsets.all(16.0),
+              child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+            ),
+        ],
       ),
       body: clinicAsync.when(
         data: (clinic) {
           if (clinic == null) return const Center(child: Text('لم يتم العثور على بيانات العيادة'));
+          
+          if (_clinicNameController.text.isEmpty) {
+            _clinicNameController.text = clinic.name;
+          }
+          
+          if (authState is AuthAuthenticated && _userNameController.text.isEmpty) {
+            _userNameController.text = authState.profile?.fullName ?? '';
+          }
 
           return SingleChildScrollView(
             padding: const EdgeInsets.all(24),
@@ -103,12 +152,25 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ),
                 const SizedBox(height: 32),
                 
-                const Text(
-                  'أوقات العمل اليومية',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: primaryColor),
+                _buildSectionHeader('معلومات المركز الطبي'),
+                _buildTextField(
+                  controller: _clinicNameController,
+                  label: 'اسم المركز',
+                  onSubmitted: (val) => _updateSettings(clinic, {'name': val}),
                 ),
-                const SizedBox(height: 16),
                 
+                const SizedBox(height: 24),
+                
+                _buildSectionHeader('الملف الشخصي'),
+                _buildTextField(
+                  controller: _userNameController,
+                  label: 'اسم الطبيب المسئول',
+                  onSubmitted: (val) => _updateProfile(val),
+                ),
+                
+                const SizedBox(height: 32),
+                
+                _buildSectionHeader('أوقات العمل اليومية'),
                 Container(
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
@@ -139,75 +201,105 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 
                 const SizedBox(height: 32),
                 
-                const Text(
-                  'أيام العطلات الأسبوعية',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: primaryColor),
-                ),
-                const SizedBox(height: 16),
-                
+                _buildSectionHeader('أيام العطلات الأسبوعية'),
                 Wrap(
                   spacing: 10,
                   runSpacing: 10,
-                  children: _days.map((day) {
-                    final isHoliday = clinic.holidays.contains(day);
-                    return FilterChip(
-                      label: Text(day),
-                      selected: isHoliday,
-                      onSelected: (selected) {
-                        final newHolidays = List<String>.from(clinic.holidays);
-                        if (selected) {
-                          newHolidays.add(day);
-                        } else {
-                          newHolidays.remove(day);
-                        }
-                        _updateSettings(clinic, {'holidays': newHolidays});
-                      },
-                      selectedColor: Colors.redAccent.withOpacity(0.1),
-                      checkmarkColor: Colors.redAccent,
-                      labelStyle: TextStyle(
-                        color: isHoliday ? Colors.redAccent : Colors.grey,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        side: BorderSide(color: isHoliday ? Colors.redAccent : Colors.grey[200]!),
-                      ),
-                    );
-                  }).toList(),
-                ).reversed.toList().cast<Widget>(), // RTL feel
+                  children: clinic.holidays.isNotEmpty || _days.isNotEmpty 
+                    ? _days.map((day) {
+                        final isHoliday = clinic.holidays.contains(day);
+                        return FilterChip(
+                          label: Text(day),
+                          selected: isHoliday,
+                          onSelected: (selected) {
+                            final newHolidays = List<String>.from(clinic.holidays);
+                            if (selected) {
+                              newHolidays.add(day);
+                            } else {
+                              newHolidays.remove(day);
+                            }
+                            _updateSettings(clinic, {'holidays': newHolidays});
+                          },
+                          selectedColor: Colors.redAccent.withOpacity(0.1),
+                          checkmarkColor: Colors.redAccent,
+                          labelStyle: TextStyle(
+                            color: isHoliday ? Colors.redAccent : Colors.grey,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            side: BorderSide(color: isHoliday ? Colors.redAccent : Colors.grey[200]!),
+                          ),
+                        );
+                      }).toList().reversed.toList()
+                    : [],
+                ),
 
                 const SizedBox(height: 40),
                 
-                if (_isSaving)
-                  const Center(child: CircularProgressIndicator())
-                else
-                  Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: Colors.amber[50],
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: Colors.amber[100]!),
-                    ),
-                    child: const Row(
-                      children: [
-                        Icon(Icons.info_outline, color: Colors.amber),
-                        SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            'هذه الإعدادات تستخدم بواسطة مساعد العيادة الذكي للرد على استفسارات المرضى حول المواعيد المتاحة.',
-                            textAlign: TextAlign.right,
-                            style: TextStyle(fontSize: 12, color: Colors.orange),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                _buildAIInfo(),
               ],
             ),
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (err, _) => Center(child: Text('Error: $err')),
+      ),
+    );
+  }
+
+  Widget _buildSectionHeader(String title) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Text(
+        title,
+        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF006D63)),
+      ),
+    );
+  }
+
+  Widget _buildTextField({required TextEditingController controller, required String label, required Function(String) onSubmitted}) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.01), blurRadius: 5)],
+      ),
+      child: TextField(
+        controller: controller,
+        textAlign: TextAlign.right,
+        decoration: InputDecoration(
+          labelText: label,
+          labelStyle: const TextStyle(color: Colors.grey),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          suffixIcon: const Icon(Icons.edit, size: 18, color: Colors.grey),
+        ),
+        onSubmitted: onSubmitted,
+      ),
+    );
+  }
+
+  Widget _buildAIInfo() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.amber[50],
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.amber[100]!),
+      ),
+      child: const Row(
+        children: [
+          Icon(Icons.info_outline, color: Colors.amber),
+          SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              'هذه الإعدادات تستخدم بواسطة مساعد العيادة الذكي للرد على استفسارات المرضى حول المواعيد المتاحة.',
+              textAlign: TextAlign.right,
+              style: TextStyle(fontSize: 12, color: Colors.orange),
+            ),
+          ),
+        ],
       ),
     );
   }

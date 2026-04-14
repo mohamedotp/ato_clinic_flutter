@@ -53,4 +53,13 @@ class VisitService {
   Future<void> deleteVisit(String id) async {
     await _supabase.from('visits').delete().eq('id', id);
   }
+
+  Future<List<Visit>> getPatientVisits(String patientId) async {
+    final response = await _supabase
+        .from('visits')
+        .select('*')
+        .eq('patient_id', patientId)
+        .order('visit_date', ascending: false);
+    return (response as List).map((json) => Visit.fromJson(json)).toList();
+  }
 }

@@ -74,4 +74,16 @@ class AuthNotifier extends StateNotifier<AuthState> {
   Future<void> signOut() async {
     await _authService.signOut();
   }
+
+  Future<void> updateProfile(Map<String, dynamic> updates) async {
+    if (state is! AuthAuthenticated) return;
+    final current = state as AuthAuthenticated;
+    
+    try {
+      await _authService.updateProfile(current.user.id, updates);
+      await _loadProfile(current.user);
+    } catch (e) {
+      state = AuthError(e.toString());
+    }
+  }
 }

@@ -4,6 +4,9 @@ import 'package:go_router/go_router.dart';
 import '../../models/patient.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/patients_provider.dart';
+import '../../providers/clinic_provider.dart';
+import '../../providers/visits_provider.dart';
+import '../../services/pdf_service.dart';
 
 class PatientsListScreen extends ConsumerStatefulWidget {
   const PatientsListScreen({super.key});
@@ -138,7 +141,7 @@ class _PatientsListScreenState extends ConsumerState<PatientsListScreen> {
   }
 }
 
-class _PatientCard extends StatelessWidget {
+class _PatientCard extends ConsumerWidget {
   final Patient patient;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
@@ -150,7 +153,7 @@ class _PatientCard extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(16),
@@ -200,6 +203,24 @@ class _PatientCard extends StatelessWidget {
                 icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 18),
                 style: IconButton.styleFrom(
                   backgroundColor: Colors.red.withOpacity(0.05),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  minimumSize: const Size(36, 36),
+                ),
+              ),
+              const SizedBox(height: 4),
+              IconButton(
+                onPressed: () async {
+                  final visits = await ref.read(visitService).getPatientVisits(patient.id);
+                  final clinic = await ref.read(clinicProvider.future);
+                  await PdfService.generatePatientReport(
+                    patient: patient,
+                    visits: visits,
+                    clinicName: clinic?.name ?? 'عيادتي',
+                  );
+                },
+                icon: const Icon(Icons.print_outlined, color: Colors.blueAccent, size: 18),
+                style: IconButton.styleFrom(
+                  backgroundColor: Colors.blue.withOpacity(0.05),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   minimumSize: const Size(36, 36),
                 ),
@@ -295,9 +316,10 @@ class _AddEditPatientBottomSheetState extends ConsumerState<_AddEditPatientBotto
       final authState = ref.read(authProvider);
       if (authState is! AuthAuthenticated) return;
       
-      final clinicId = authState.profile?.id; // Assuming profile ID or another way to get clinic_id
-      // Fetch clinic_id logic might be more complex, but for now:
-      final cId = widget.patient?.clinicId ?? authState.profile?.id; // Placeholder
+      final clinicId = authState.profile?.clinicId;
+      if (clinicId == null) return;
+      
+      final cId = widget.patient?.clinicId ?? clinicId;
 
       final data = {
         'full_name': _nameController.text,

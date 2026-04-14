@@ -5,6 +5,7 @@ import '../../providers/visits_provider.dart';
 import '../../providers/patients_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/services_provider.dart';
+import '../../providers/tts_provider.dart';
 import 'package:intl/intl.dart';
 
 class VisitsListScreen extends ConsumerWidget {
@@ -158,7 +159,7 @@ class _MetricCard extends StatelessWidget {
   }
 }
 
-class _VisitCard extends StatelessWidget {
+class _VisitCard extends ConsumerWidget {
   final Visit visit;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
@@ -166,7 +167,7 @@ class _VisitCard extends StatelessWidget {
   const _VisitCard({required this.visit, required this.onEdit, required this.onDelete});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(16),
@@ -186,7 +187,20 @@ class _VisitCard extends StatelessWidget {
               children: [
                 Text(visit.patient?.fullName ?? 'مريض غير معروف', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
                 const SizedBox(height: 4),
-                Text(visit.diagnosis ?? 'لا يوجد تشخيص', style: const TextStyle(color: Colors.grey, fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    if (visit.diagnosis != null)
+                      IconButton(
+                        onPressed: () => ref.read(ttsServiceProvider).speak(visit.diagnosis!),
+                        icon: const Icon(Icons.volume_up_outlined, size: 16, color: Colors.blueAccent),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
+                    const SizedBox(width: 4),
+                    Text(visit.diagnosis ?? 'لا يوجد تشخيص', style: const TextStyle(color: Colors.grey, fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis),
+                  ],
+                ),
                 const SizedBox(height: 8),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.end,

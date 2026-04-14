@@ -5,6 +5,7 @@ import '../../providers/auth_provider.dart';
 import '../../providers/appointments_provider.dart';
 import '../../providers/patients_provider.dart';
 import '../../models/appointment.dart';
+import '../../models/profile.dart';
 import '../../widgets/modals/add_edit_appointment_modal.dart';
 
 class DashboardScreen extends ConsumerWidget {
@@ -15,6 +16,11 @@ class DashboardScreen extends ConsumerWidget {
     final authState = ref.watch(authProvider);
     final appointmentsAsync = ref.watch(appointmentsProvider);
     final patientsAsync = ref.watch(patientsProvider);
+    
+    // RBAC
+    final profile = authState is AuthAuthenticated ? authState.profile : null;
+    final isReceptionist = profile?.role == UserRole.receptionist;
+    final isAdmin = profile?.role == UserRole.admin || profile?.role == UserRole.super_admin;
     
     // Theme Colors
     const primaryColor = Color(0xFF006D63); 
@@ -75,8 +81,8 @@ class DashboardScreen extends ConsumerWidget {
                 ),
               ),
 
-              // 2. Revenue Card
-              const _RevenueCard(),
+              // 2. Revenue Card (Hidden for Receptionist)
+              if (!isReceptionist) const _RevenueCard(),
 
 
               // 3. Quick Actions Grid
@@ -126,15 +132,18 @@ class DashboardScreen extends ConsumerWidget {
                           ),
                         ),
                         const SizedBox(width: 16),
-                        Expanded(
-                          child: _QuickActionCard(
-                            title: 'الزيارات',
-                            icon: Icons.history_edu_outlined,
-                            color: Colors.white,
-                            textColor: Colors.black,
-                            onTap: () => context.push('/visits'),
-                          ),
-                        ),
+                        if (!isReceptionist)
+                          Expanded(
+                            child: _QuickActionCard(
+                              title: 'الزيارات',
+                              icon: Icons.history_edu_outlined,
+                              color: Colors.white,
+                              textColor: Colors.black,
+                              onTap: () => context.push('/visits'),
+                            ),
+                          )
+                        else
+                           const Spacer(),
                       ],
                     ),
                   ],
@@ -259,11 +268,12 @@ class DashboardScreen extends ConsumerWidget {
           if (index == 2) context.push('/appointments');
           if (index == 3) context.push('/visits'); // Changed settings to visits for now
         },
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.grid_view_rounded), label: 'الرئيسية'),
-          BottomNavigationBarItem(icon: Icon(Icons.people_outline), label: 'المرضى'),
-          BottomNavigationBarItem(icon: Icon(Icons.calendar_month_outlined), label: 'المواعيد'),
-          BottomNavigationBarItem(icon: Icon(Icons.history_edu_outlined), label: 'الزيارات'),
+        items: [
+          const BottomNavigationBarItem(icon: Icon(Icons.grid_view_rounded), label: 'الرئيسية'),
+          const BottomNavigationBarItem(icon: Icon(Icons.people_outline), label: 'المرضى'),
+          const BottomNavigationBarItem(icon: Icon(Icons.calendar_month_outlined), label: 'المواعيد'),
+          if (!isReceptionist)
+             const BottomNavigationBarItem(icon: Icon(Icons.history_edu_outlined), label: 'الزيارات'),
         ],
       ),
     );

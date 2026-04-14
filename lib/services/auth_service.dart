@@ -25,4 +25,8 @@ class AuthService {
         .single();
     return Profile.fromJson(data);
   }
+
+  Future<void> updateProfile(String id, Map<String, dynamic> updates) async {
+    await _client.from('profiles').update(updates).eq('id', id);
+  }
 }

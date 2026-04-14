@@ -14,3 +14,7 @@ final visitsProvider = FutureProvider<List<Visit>>((ref) async {
 
   return ref.watch(visitService).getVisits(clinicId);
 });
+
+final patientVisitsProvider = FutureProvider.family<List<Visit>, String>((ref, patientId) async {
+  return ref.watch(visitService).getPatientVisits(patientId);
+});
