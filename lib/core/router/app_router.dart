@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/auth_provider.dart';
@@ -15,52 +17,66 @@ import 'package:ato_clinic_flutter/models/profile.dart';
 import 'package:ato_clinic_flutter/screens/super_admin/super_admin_dashboard_screen.dart';
 import 'package:ato_clinic_flutter/screens/super_admin/clinic_management_screen.dart';
 
+/// A listenable that triggers GoRouter to re-evaluate the redirect logic 
+/// whenever the auth state changes, without recreating the entire GoRouter instance.
+class RouterRefreshListenable extends ChangeNotifier {
+  RouterRefreshListenable(Ref ref) {
+    _subscription = ref.listen(authProvider, (_, __) => notifyListeners());
+  }
+
+  late final ProviderSubscription _subscription;
+
+  @override
+  void dispose() {
+    _subscription.close();
+    super.dispose();
+  }
+}
+
 final routerProvider = Provider<GoRouter>((ref) {
-  final authState = ref.watch(authProvider);
+  // Use ChangeNotifier to notify GoRouter about auth changes
+  final refreshListenable = RouterRefreshListenable(ref);
 
   return GoRouter(
     initialLocation: '/',
+    refreshListenable: refreshListenable,
     redirect: (context, state) {
+      // Use ref.read here because GoRouter will re-call this 
+      // when refreshListenable notifies it.
+      final authState = ref.read(authProvider);
       final bool isAuthenticated = authState is AuthAuthenticated;
-      final bool isUnauthenticated = authState is AuthUnauthenticated;
       final bool isLoggingIn = state.matchedLocation == '/login';
 
-      if (isUnauthenticated) {
+      if (!isAuthenticated) {
         return isLoggingIn ? null : '/login';
       }
 
-      if (isAuthenticated) {
+      if (isLoggingIn) {
         final profile = (authState as AuthAuthenticated).profile;
-        final role = profile?.role;
-        final isSuperAdmin = role == UserRole.super_admin;
-        final isReceptionist = role == UserRole.receptionist;
-        
-        if (isLoggingIn) {
-          return isSuperAdmin ? '/super-admin' : '/';
-        }
-        
-        // Prevent ordinary users from entering super admin paths
-        if (state.matchedLocation.startsWith('/super-admin') && !isSuperAdmin) {
-          return '/';
-        }
+        return profile?.role == UserRole.super_admin ? '/super-admin' : '/';
+      }
 
-        // RBAC: Block Receptionist from restricted medical/admin zones
-        if (isReceptionist && 
-           (state.matchedLocation.startsWith('/visits') || 
-            state.matchedLocation.startsWith('/workspace') ||
-            state.matchedLocation.startsWith('/settings') ||
-            state.matchedLocation.startsWith('/ai'))) {
-          return '/';
-        }
+      final profile = (authState as AuthAuthenticated).profile;
+      final role = profile?.role;
+      final isSuperAdmin = role == UserRole.super_admin;
+      final isReceptionist = role == UserRole.receptionist;
 
-        // RBAC: Block Doctors from managing Users/Settings
-        if (role == UserRole.doctor && state.matchedLocation.startsWith('/settings')) {
-            // Depending on the logic, maybe doctors can see basic settings but not users? 
-            // In a strict clinic, we block doctors from /settings/users.
-            if (state.matchedLocation.startsWith('/settings/users')) {
-              return '/settings';
-            }
-        }
+      if (state.matchedLocation.startsWith('/super-admin') && !isSuperAdmin) {
+        return '/';
+      }
+
+      if (isReceptionist && 
+         (state.matchedLocation.startsWith('/visits') || 
+          state.matchedLocation.startsWith('/workspace') ||
+          state.matchedLocation.startsWith('/settings') ||
+          state.matchedLocation.startsWith('/ai'))) {
+        return '/';
+      }
+
+      if (role == UserRole.doctor && state.matchedLocation.startsWith('/settings')) {
+          if (state.matchedLocation.startsWith('/settings/users')) {
+            return '/settings';
+          }
       }
 
       return null;

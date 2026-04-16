@@ -68,15 +68,6 @@ class DashboardScreen extends ConsumerWidget {
                         color: primaryColor,
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Icon(Icons.notifications_none, color: primaryColor),
-                    ),
                   ],
                 ),
               ),
@@ -266,14 +257,19 @@ class DashboardScreen extends ConsumerWidget {
         onTap: (index) {
           if (index == 1) context.push('/patients');
           if (index == 2) context.push('/appointments');
-          if (index == 3) context.push('/visits'); // Changed settings to visits for now
+          if (index == 3 && !isReceptionist) context.push('/visits'); 
+          if (index == 3 && isReceptionist) context.push('/settings');
+          if (index == 4) context.push('/settings');
         },
         items: [
           const BottomNavigationBarItem(icon: Icon(Icons.grid_view_rounded), label: 'الرئيسية'),
           const BottomNavigationBarItem(icon: Icon(Icons.people_outline), label: 'المرضى'),
           const BottomNavigationBarItem(icon: Icon(Icons.calendar_month_outlined), label: 'المواعيد'),
-          if (!isReceptionist)
-             const BottomNavigationBarItem(icon: Icon(Icons.history_edu_outlined), label: 'الزيارات'),
+          if (!isReceptionist) ...[
+            const BottomNavigationBarItem(icon: Icon(Icons.history_edu_outlined), label: 'الزيارات'),
+            const BottomNavigationBarItem(icon: Icon(Icons.settings_outlined), label: 'الإعدادات'),
+          ] else
+            const BottomNavigationBarItem(icon: Icon(Icons.settings_outlined), label: 'الإعدادات'),
         ],
       ),
     );

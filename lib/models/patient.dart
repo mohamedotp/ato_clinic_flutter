@@ -29,18 +29,18 @@ class Patient {
 
   factory Patient.fromJson(Map<String, dynamic> json) {
     return Patient(
-      id: json['id'],
-      clinicId: json['clinic_id'],
-      fullName: json['full_name'],
+      id: json['id']?.toString() ?? '',
+      clinicId: json['clinic_id']?.toString() ?? '',
+      fullName: json['full_name'] ?? '',
       phone: json['phone'],
       email: json['email'],
-      dateOfBirth: json['date_of_birth'] != null ? DateTime.parse(json['date_of_birth']) : null,
+      dateOfBirth: json['date_of_birth'] != null ? DateTime.tryParse(json['date_of_birth']) : null,
       gender: json['gender'],
       nationalId: json['national_id'],
       address: json['address'],
       patientCode: json['patient_code'],
       status: json['status'],
-      createdAt: DateTime.parse(json['created_at']),
+      createdAt: json['created_at'] != null ? DateTime.parse(json['created_at']) : DateTime.now(),
     );
   }
 

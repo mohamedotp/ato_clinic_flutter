@@ -18,12 +18,29 @@ class AuthService {
   }
 
   Future<Profile?> getProfile(String id) async {
-    final data = await _client
-        .from('profiles')
-        .select()
-        .eq('id', id)
-        .single();
-    return Profile.fromJson(data);
+    try {
+      final data = await _client
+          .from('profiles')
+          .select()
+          .eq('id', id)
+          .maybeSingle(); // Better than .single() to avoid exception if missing
+      return data != null ? Profile.fromJson(data) : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  Future<bool> isClinicActive(String clinicId) async {
+    try {
+      final data = await _client
+          .from('clinics')
+          .select('is_active')
+          .eq('id', clinicId)
+          .single();
+      return data['is_active'] ?? false;
+    } catch (e) {
+      return false;
+    }
   }
 
   Future<void> updateProfile(String id, Map<String, dynamic> updates) async {

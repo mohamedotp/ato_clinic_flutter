@@ -4,21 +4,26 @@ import '../models/patient.dart';
 class PatientService {
   final SupabaseClient _client = Supabase.instance.client;
 
-  Future<List<Patient>> getPatients(String clinicId) async {
-    final response = await _client
-        .from('patients')
-        .select()
-        .eq('clinic_id', clinicId)
-        .order('full_name', ascending: true);
+  Future<List<Patient>> getPatients([String? clinicId]) async {
+    var query = _client.from('patients').select();
+    
+    if (clinicId != null) {
+      query = query.eq('clinic_id', clinicId);
+    }
+    
+    final response = await query.order('full_name', ascending: true);
     
     return (response as List).map((json) => Patient.fromJson(json)).toList();
   }
 
-  Future<List<Patient>> searchPatients(String clinicId, String query) async {
-    final response = await _client
-        .from('patients')
-        .select()
-        .eq('clinic_id', clinicId)
+  Future<List<Patient>> searchPatients(String query, [String? clinicId]) async {
+    var q = _client.from('patients').select();
+    
+    if (clinicId != null) {
+      q = q.eq('clinic_id', clinicId);
+    }
+    
+    final response = await q
         .ilike('full_name', '%$query%')
         .order('full_name', ascending: true);
     

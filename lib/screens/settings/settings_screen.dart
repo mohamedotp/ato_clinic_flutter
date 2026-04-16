@@ -238,6 +238,43 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 const SizedBox(height: 40),
                 
                 _buildAIInfo(),
+                
+                const SizedBox(height: 40),
+
+                // Logout Button
+                SizedBox(
+                  width: double.infinity,
+                  height: 60,
+                  child: ElevatedButton.icon(
+                    onPressed: () async {
+                      final confirmed = await showDialog<bool>(
+                        context: context,
+                        builder: (context) => AlertDialog(
+                          title: const Text('تسجيل الخروج', textAlign: TextAlign.right),
+                          content: const Text('هل أنت متأكد من رغبتك في تسجيل الخروج الآن؟', textAlign: TextAlign.right),
+                          actions: [
+                            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('إلغاء')),
+                            TextButton(
+                              onPressed: () => Navigator.pop(context, true), 
+                              child: const Text('تسجيل الخروج', style: TextStyle(color: Colors.red)),
+                            ),
+                          ],
+                        ),
+                      );
+
+                      if (confirmed == true) {
+                        await ref.read(authProvider.notifier).signOut();
+                      }
+                    },
+                    icon: const Icon(Icons.logout, color: Colors.white),
+                    label: const Text('تسجيل الخروج', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.redAccent,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 40),
               ],
             ),
           );

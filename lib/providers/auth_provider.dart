@@ -55,10 +55,43 @@ class AuthNotifier extends StateNotifier<AuthState> {
     state = AuthLoading();
     try {
       final profile = await _authService.getProfile(user.id);
+      
+      // 1. Check if profile exists
+      if (profile == null) {
+        await _authService.signOut();
+        state = AuthError('لم يتم العثور على ملف تعريف لهذا المستخدم. يرجى التواصل مع الإدارة.');
+        return;
+      }
+
+      // 2. Check Role-based logic
+      final isSuperAdmin = profile.role == UserRole.super_admin;
+      
+      if (!isSuperAdmin) {
+        // Validation for regular users (Doctors/Receptionists/Admins)
+        
+        // Check if assigned to a clinic
+        if (profile.clinicId == null) {
+          await _authService.signOut();
+          state = AuthError('هذا الحساب غير مربوط بأي عيادة حالياً.');
+          return;
+        }
+
+        // Check if clinic is active
+        final active = await _authService.isClinicActive(profile.clinicId!);
+        if (!active) {
+          await _authService.signOut();
+          state = AuthError('عذراً، هذه العيادة متوقفة حالياً. يرجى مراجعة الإدارة.');
+          return;
+        }
+      }
+
+      // Everything is fine
       state = AuthAuthenticated(user, profile);
     } catch (e) {
-      // In case profile is not yet created or error fetching
-      state = AuthAuthenticated(user, null);
+      print('=== ERROR LOADING PROFILE ===');
+      print(e);
+      await _authService.signOut();
+      state = AuthError('حدث خطأ أثناء تحميل بياناتك: ${e.toString()}');
     }
   }
 
@@ -67,8 +100,29 @@ class AuthNotifier extends StateNotifier<AuthState> {
     try {
       await _authService.signIn(email, password);
     } catch (e) {
-      state = AuthError(e.toString());
+      state = AuthError(_mapAuthError(e));
     }
+  }
+
+  String _mapAuthError(Object e) {
+    if (e is AuthException) {
+      final message = e.message.toLowerCase();
+      if (message.contains('invalid login credentials')) {
+        return 'البريد الإلكتروني أو كلمة المرور غير صحيحة.';
+      } else if (message.contains('email not confirmed')) {
+        return 'يرجى تأكيد البريد الإلكتروني أولاً عبر الرابط المرسل لك.';
+      } else if (message.contains('missing email') || message.contains('validation failed')) {
+        return 'يرجى التأكد من إدخال البريد الإلكتروني وكلمة المرور بشكل صحيح.';
+      } else if (message.contains('user not found')) {
+        return 'عذراً، هذا المستخدم غير مسجل في النظام.';
+      } else if (message.contains('too many requests')) {
+        return 'لقد قمت بمحاولات كثيرة جداً. يرجى الانتظار دقيقة قبل المحاولة مرة أخرى.';
+      } else if (message.contains('network') || message.contains('failed host lookup')) {
+        return 'فشل الاتصال بالإنترنت. يرجى التأكد من اتصالك.';
+      }
+      return 'حدث خطأ في عملية الدخول: ${e.message}';
+    }
+    return 'حدث خطأ غير متوقع: ${e.toString()}';
   }
 
   Future<void> signOut() async {
@@ -83,7 +137,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       await _authService.updateProfile(current.user.id, updates);
       await _loadProfile(current.user);
     } catch (e) {
-      state = AuthError(e.toString());
+      state = AuthError(_mapAuthError(e));
     }
   }
 }

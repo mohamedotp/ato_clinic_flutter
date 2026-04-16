@@ -15,19 +15,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _passwordController = TextEditingController();
   bool _isLoading = false;
 
+  Future<void> _handleLogin() async {
+    if (_isLoading) return;
+    setState(() => _isLoading = true);
+    await ref.read(authProvider.notifier).signIn(
+      _emailController.text.trim(),
+      _passwordController.text,
+    );
+    if (mounted) {
+      setState(() => _isLoading = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    ref.listen(authProvider, (previous, next) {
-      if (next is AuthError) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(next.message),
-            backgroundColor: AppColors.error,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
-    });
+    final authState = ref.watch(authProvider);
 
     final scaffoldBg = const Color(0xFFF0F4F8);
     const primaryColor = Color(0xFF2C3E50); // From React primary
@@ -146,7 +148,37 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               fontWeight: FontWeight.bold,
                             ),
                           ),
-                          const SizedBox(height: 32),
+                          const SizedBox(height: 24),
+                          
+                          // Error Message Box
+                          if (authState is AuthError)
+                            Container(
+                              margin: const EdgeInsets.only(bottom: 24),
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFEF2F2), // Light Red
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(color: const Color(0xFFFECACA)), // Red border
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.error_outline_rounded, color: Color(0xFFDC2626)),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Text(
+                                      (authState as AuthError).message,
+                                      style: const TextStyle(
+                                        color: Color(0xFF991B1B), // Dark Red text
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          
+                          const SizedBox(height: 8),
                           
                           // Email Field
                           const Text(
@@ -161,6 +193,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           TextField(
                             controller: _emailController,
                             textAlign: TextAlign.right,
+                            textInputAction: TextInputAction.next,
                             decoration: InputDecoration(
                               hintText: 'name@clinic.com',
                               prefixIcon: const Icon(Icons.email_outlined, color: Colors.grey),
@@ -196,6 +229,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             controller: _passwordController,
                             obscureText: true,
                             textAlign: TextAlign.right,
+                            textInputAction: TextInputAction.done,
+                            onSubmitted: (_) => _handleLogin(),
                             decoration: InputDecoration(
                               hintText: '••••••••',
                               prefixIcon: const Icon(Icons.lock_outline_rounded, color: Colors.grey),
@@ -217,17 +252,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           ),
                           
                           const SizedBox(height: 12),
-                          TextButton(
-                            onPressed: () {},
-                            child: const Text(
-                              'نسيت كلمة المرور؟',
-                              style: TextStyle(
-                                color: primaryColor,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 13,
-                              ),
-                            ),
-                          ),
+                          // TextButton(
+                          //   onPressed: () {},
+                          //   child: const Text(
+                          //     'نسيت كلمة المرور؟',
+                          //     style: TextStyle(
+                          //       color: primaryColor,
+                          //       fontWeight: FontWeight.bold,
+                          //       fontSize: 13,
+                          //     ),
+                          //   ),
+                          // ),
                           
                           const SizedBox(height: 24),
                           
@@ -236,20 +271,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             width: double.infinity,
                             height: 60,
                             child: ElevatedButton(
-                              onPressed: _isLoading
-                                  ? null
-                                  : () async {
-                                      setState(() => _isLoading = true);
-                                      await ref
-                                          .read(authProvider.notifier)
-                                          .signIn(
-                                            _emailController.text,
-                                            _passwordController.text,
-                                          );
-                                      if (mounted) {
-                                        setState(() => _isLoading = false);
-                                      }
-                                    },
+                              onPressed: _isLoading ? null : _handleLogin,
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: primaryColor,
                                 foregroundColor: Colors.white,

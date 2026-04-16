@@ -107,22 +107,28 @@ class _AppointmentCard extends StatelessWidget {
               IconButton(onPressed: onDelete, icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 20)),
             ],
           ),
-          const Spacer(),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                Text(appointment.patient?.fullName ?? 'مريض غير معروف', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                Text(
+                  appointment.patient?.fullName ?? 'مريض غير معروف',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  textAlign: TextAlign.right,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
                 const SizedBox(height: 4),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
+                Wrap(
+                  alignment: WrapAlignment.end,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 8,
+                  runSpacing: 4,
                   children: [
                     Text(appointment.appointmentTime ?? '--:--', style: const TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
-                    const SizedBox(width: 4),
                     const Icon(Icons.access_time, size: 14, color: Colors.grey),
-                    const SizedBox(width: 8),
                     Text(DateFormat('yyyy/MM/dd').format(appointment.appointmentDate ?? DateTime.now()), style: const TextStyle(color: Colors.grey)),
-                    const SizedBox(width: 4),
                     const Icon(Icons.calendar_today, size: 14, color: Colors.grey),
                   ],
                 ),

@@ -39,8 +39,9 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
   @override
   void initState() {
     super.initState();
+    // Start at a more neutral position (around 400, 400 on the 3200x3200 canvas)
     _transformationController.value = Matrix4.identity()
-      ..translate(-1000.0, -1000.0)
+      ..translate(-400.0, -400.0)
       ..scale(0.8);
   }
 
@@ -277,10 +278,28 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
             onPointerUp: _handleConnectEnd,
             child: workspaceState.isLoading
               ? const Center(child: CircularProgressIndicator())
-              : InteractiveViewer(
+              : workspaceState.error != null
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.error_outline, color: Colors.red, size: 48),
+                        const SizedBox(height: 16),
+                        Text('خطأ في تحميل البيانات: ${workspaceState.error}', 
+                          style: const TextStyle(color: Colors.red),
+                          textAlign: TextAlign.center,
+                        ),
+                        TextButton(
+                          onPressed: () => ref.refresh(workspaceProvider(widget.patientId)),
+                          child: const Text('إعادة المحاولة'),
+                        ),
+                      ],
+                    ),
+                  )
+                : InteractiveViewer(
                   transformationController: _transformationController,
                   constrained: false,
-                  boundaryMargin: const EdgeInsets.all(1000),
+                  boundaryMargin: const EdgeInsets.all(2000),
                   minScale: 0.1,
                   maxScale: 2.5,
                   panEnabled: _selectedNoteId == null,
@@ -301,6 +320,14 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
                             ),
                           ),
                         ),
+                        if (filteredNotes.isEmpty)
+                          const Center(
+                            child: Text(
+                              'لا توجد ملاحظات حالياً.\nاضغط على زر + للإضافة.',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(color: Colors.grey, fontSize: 16),
+                            ),
+                          ),
                         ...filteredNotes.map((note) => _buildNode(note, notifier)),
                       ],
                     ),
