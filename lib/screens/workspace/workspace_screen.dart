@@ -245,6 +245,49 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(workspaceProvider(widget.patientId), (previous, next) {
+      if (previous?.isLoading == true && next.isLoading == false) {
+        if (next.notes.isNotEmpty) {
+          // Calculate bounding box of all notes
+          double minX = double.infinity;
+          double minY = double.infinity;
+          double maxX = double.negativeInfinity;
+          double maxY = double.negativeInfinity;
+
+          for (var note in next.notes) {
+            if (note.positionX < minX) minX = note.positionX;
+            if (note.positionY < minY) minY = note.positionY;
+            if (note.positionX + note.width > maxX) maxX = note.positionX + note.width;
+            if (note.positionY + note.height > maxY) maxY = note.positionY + note.height;
+          }
+
+          if (minX != double.infinity) {
+            final cx = (minX + maxX) / 2;
+            final cy = (minY + maxY) / 2;
+            final size = MediaQuery.sizeOf(context);
+            
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (!mounted) return;
+              const scale = 0.8;
+              _transformationController.value = Matrix4.identity()
+                ..translate(size.width / 2 - cx * scale, size.height / 2 - cy * scale)
+                ..scale(scale);
+            });
+          }
+        } else {
+          // Center the canvas if no notes
+          final size = MediaQuery.sizeOf(context);
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+            const scale = 0.8;
+            _transformationController.value = Matrix4.identity()
+              ..translate(size.width / 2 - 1600 * scale, size.height / 2 - 1600 * scale)
+              ..scale(scale);
+          });
+        }
+      }
+    });
+
     final workspaceState = ref.watch(workspaceProvider(widget.patientId));
     final notifier = ref.read(workspaceProvider(widget.patientId).notifier);
 
@@ -302,12 +345,20 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
                   boundaryMargin: const EdgeInsets.all(2000),
                   minScale: 0.1,
                   maxScale: 2.5,
-                  panEnabled: _selectedNoteId == null,
+                  panEnabled: true,
                   scaleEnabled: true,
-                  child: SizedBox(
-                    width: 3200,
-                    height: 3200,
-                    child: Stack(
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () {
+                      FocusScope.of(context).unfocus();
+                      if (_selectedNoteId != null) {
+                        setState(() => _selectedNoteId = null);
+                      }
+                    },
+                    child: SizedBox(
+                      width: 3200,
+                      height: 3200,
+                      child: Stack(
                       children: [
                         Positioned.fill(child: CustomPaint(painter: GridPainter())),
                         Positioned.fill(
@@ -333,7 +384,8 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
                     ),
                   ),
                 ),
-          ),
+              ), // Closes InteractiveViewer
+          ), // Closes Listener
 
           // Search & Header
           Positioned(

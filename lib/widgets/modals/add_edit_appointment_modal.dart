@@ -94,14 +94,60 @@ class _AddEditAppointmentModalState extends ConsumerState<AddEditAppointmentModa
               Text(widget.appointment == null ? 'جدولة موعد جديد' : 'تعديل موعد', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
               const SizedBox(height: 24),
               patientsAsync.when(
-                data: (patients) => DropdownButtonFormField<String>(
-                  value: _selectedPatientId,
-                  items: patients.map((p) => DropdownMenuItem(value: p.id, child: Text(p.fullName, textAlign: TextAlign.right))).toList(),
-                  onChanged: (val) => setState(() => _selectedPatientId = val),
-                  decoration: const InputDecoration(labelText: 'اختر المريض', border: OutlineInputBorder()),
-                ),
+                data: (patients) {
+                  final initialPatient = _selectedPatientId != null 
+                    ? patients.firstWhere((p) => p.id == _selectedPatientId, orElse: () => patients.first)
+                    : null;
+                    
+                  return SearchAnchor(
+                    builder: (BuildContext context, SearchController controller) {
+                      // Update controller text if a patient is selected but text is empty
+                      if (_selectedPatientId != null && controller.text.isEmpty) {
+                         final p = patients.firstWhere((p) => p.id == _selectedPatientId);
+                         controller.text = p.fullName;
+                      }
+                      
+                      return TextFormField(
+                        controller: controller,
+                        readOnly: true,
+                        textAlign: TextAlign.right,
+                        onTap: () => controller.openView(),
+                        decoration: InputDecoration(
+                          labelText: 'اختر المريض',
+                          prefixIcon: const Icon(Icons.person_search),
+                          border: const OutlineInputBorder(),
+                          suffixIcon: _selectedPatientId != null 
+                            ? IconButton(
+                                icon: const Icon(Icons.clear), 
+                                onPressed: () {
+                                  setState(() => _selectedPatientId = null);
+                                  controller.clear();
+                                }
+                              )
+                            : null,
+                        ),
+                        validator: (value) => _selectedPatientId == null ? 'يرجى اختيار مريض' : null,
+                      );
+                    },
+                    isFullScreen: false,
+                    viewConstraints: const BoxConstraints(maxHeight: 300),
+                    suggestionsBuilder: (BuildContext context, SearchController controller) {
+                      final String query = controller.text.toLowerCase();
+                      final filtered = patients.where((p) => p.fullName.toLowerCase().contains(query)).toList();
+                      
+                      return filtered.map((p) => ListTile(
+                        title: Text(p.fullName, textAlign: TextAlign.right),
+                        subtitle: Text(p.phone ?? '', textAlign: TextAlign.right),
+                        onTap: () {
+                          setState(() => _selectedPatientId = p.id);
+                          controller.closeView(p.fullName);
+                        },
+                      ));
+                    },
+                  );
+                },
                 loading: () => const LinearProgressIndicator(),
-                error: (_, __) => const Text('Error loading patients'),
+                error: (e, __) => Text('Error: $e'),
               ),
               const SizedBox(height: 16),
               ListTile(
@@ -116,7 +162,31 @@ class _AddEditAppointmentModalState extends ConsumerState<AddEditAppointmentModa
               TextFormField(
                 controller: _timeController,
                 textAlign: TextAlign.right,
-                decoration: const InputDecoration(labelText: 'الوقت (مثال: 10:30 AM)', prefixIcon: Icon(Icons.access_time), border: OutlineInputBorder()),
+                readOnly: true,
+                onTap: () async {
+                  final TimeOfDay? picked = await showTimePicker(
+                    context: context,
+                    initialTime: TimeOfDay.now(),
+                    builder: (BuildContext context, Widget? child) {
+                      return MediaQuery(
+                        data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: false),
+                        child: child!,
+                      );
+                    },
+                  );
+                  if (picked != null) {
+                    final now = DateTime.now();
+                    final dt = DateTime(now.year, now.month, now.day, picked.hour, picked.minute);
+                    setState(() {
+                      _timeController.text = DateFormat('h:mm a').format(dt);
+                    });
+                  }
+                },
+                decoration: const InputDecoration(
+                  labelText: 'اختر الوقت',
+                  prefixIcon: Icon(Icons.access_time),
+                  border: OutlineInputBorder(),
+                ),
               ),
               const SizedBox(height: 16),
               TextFormField(
@@ -134,7 +204,7 @@ class _AddEditAppointmentModalState extends ConsumerState<AddEditAppointmentModa
               ),
               const SizedBox(height: 32),
               SizedBox(
-                width: double.infinity,
+                width: MediaQuery.sizeOf(context).width,
                 height: 56,
                 child: ElevatedButton(
                   onPressed: _isLoading ? null : _submit,

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/appointments_provider.dart';
 import '../../providers/patients_provider.dart';
+import '../../providers/visits_provider.dart';
 import '../../models/appointment.dart';
 import '../../models/profile.dart';
 import '../../widgets/modals/add_edit_appointment_modal.dart';
@@ -16,11 +17,33 @@ class DashboardScreen extends ConsumerWidget {
     final authState = ref.watch(authProvider);
     final appointmentsAsync = ref.watch(appointmentsProvider);
     final patientsAsync = ref.watch(patientsProvider);
+    final visitsAsync = ref.watch(visitsProvider);
     
     // RBAC
     final profile = authState is AuthAuthenticated ? authState.profile : null;
     final isReceptionist = profile?.role == UserRole.receptionist;
     final isAdmin = profile?.role == UserRole.admin || profile?.role == UserRole.super_admin;
+    
+    // Dynamic Stats
+    final now = DateTime.now();
+    bool isToday(DateTime date) => date.year == now.year && date.month == now.month && date.day == now.day;
+
+    final visitsList = visitsAsync.valueOrNull ?? [];
+    double todaysRevenue = 0.0;
+    int todaysVisitsCount = 0;
+    for (var v in visitsList) {
+      final d = v.visitDate ?? v.createdAt;
+      if (isToday(d)) {
+        todaysVisitsCount++;
+        todaysRevenue += v.cost;
+      }
+    }
+
+    final appointmentsList = appointmentsAsync.valueOrNull ?? [];
+    final todaysAppointments = appointmentsList.where((a) {
+      final d = a.appointmentDate ?? a.scheduledAt ?? a.createdAt;
+      return isToday(d);
+    }).toList();
     
     // Theme Colors
     const primaryColor = Color(0xFF006D63); 
@@ -73,7 +96,7 @@ class DashboardScreen extends ConsumerWidget {
               ),
 
               // 2. Revenue Card (Hidden for Receptionist)
-              if (!isReceptionist) const _RevenueCard(),
+              if (!isReceptionist) _RevenueCard(revenue: todaysRevenue),
 
 
               // 3. Quick Actions Grid
@@ -159,7 +182,7 @@ class DashboardScreen extends ConsumerWidget {
                     Expanded(
                       child: _SummaryCard(
                         title: 'زيارات اليوم',
-                        value: '12',
+                        value: visitsAsync.isLoading ? '...' : todaysVisitsCount.toString(),
                         icon: Icons.calendar_today_outlined,
                         color: const Color(0xFFE8F5E9),
                         iconColor: Colors.green,
@@ -189,26 +212,20 @@ class DashboardScreen extends ConsumerWidget {
 
               SizedBox(
                 height: 220,
-                child: appointmentsAsync.when(
-                  data: (appointments) {
-                    if (appointments.isEmpty) {
-                      return const Center(child: Text('لا يوجد مواعيد اليوم'));
-                    }
-                    return ListView.builder(
-                      scrollDirection: Axis.horizontal,
-                      padding: const EdgeInsets.only(left: 20),
-                      itemCount: appointments.length,
-                      itemBuilder: (context, index) {
-                        return _AppointmentListCard(appointment: appointments[index]);
-                      },
-                    );
-                  },
-                  loading: () => const Center(child: CircularProgressIndicator()),
-                  error: (err, _) => Center(child: Text('Error: $err')),
-                ),
+                child: appointmentsAsync.isLoading
+                    ? const Center(child: CircularProgressIndicator())
+                    : todaysAppointments.isEmpty
+                        ? const Center(child: Text('لا يوجد مواعيد اليوم'))
+                        : ListView.builder(
+                            scrollDirection: Axis.horizontal,
+                            padding: const EdgeInsets.only(left: 20),
+                            itemCount: todaysAppointments.length,
+                            itemBuilder: (context, index) {
+                              return _AppointmentListCard(appointment: todaysAppointments[index]);
+                            },
+                          ),
               ),
 
-              // 6. Recent Activity
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 20, vertical: 20),
                 child: Text(
@@ -216,28 +233,35 @@ class DashboardScreen extends ConsumerWidget {
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
               ),
-              const _ActivityItem(
-                title: 'تم تحديث نتائج المختبر للمريض خالد حسن',
-                time: 'منذ 15 دقيقة',
-                icon: Icons.biotech_outlined,
-                color: Color(0xFFFDE8E4),
-                iconColor: Color(0xFFE67E22),
-              ),
-              const _ActivityItem(
-                title: 'تم تأكيد موعد جديد : نورة سالم',
-                time: 'منذ ساعة واحدة',
-                icon: Icons.calendar_month_outlined,
-                color: Color(0xFFE3F2FD),
-                iconColor: Color(0xFF2196F3),
-              ),
-              const _ActivityItem(
-                title: 'تم إصدار وصفة طبية رقم #RX-9021',
-                time: 'منذ ساعتين',
-                icon: Icons.assignment_outlined,
-                color: Color(0xFFE8F5E9),
-                iconColor: Color(0xFF4CAF50),
-              ),
-              const SizedBox(height: 100), 
+              ...() {
+                 final sortedAppointments = List<Appointment>.from(appointmentsList)
+                    ..sort((a,b) => b.createdAt.compareTo(a.createdAt));
+                 final recent = sortedAppointments.take(3).toList();
+                 
+                 if (recent.isEmpty) {
+                   return [const Center(child: Padding(padding: EdgeInsets.all(20), child: Text('لا توجد نشاطات حديثة')))];
+                 }
+
+                 return recent.map((app) {
+                   final timeDiff = DateTime.now().difference(app.createdAt);
+                   String timeText = 'منذ ${timeDiff.inMinutes} دقيقة';
+                   if (timeDiff.inMinutes > 60) {
+                     timeText = 'منذ ${timeDiff.inHours} ساعة';
+                   }
+                   if (timeDiff.inHours > 24) {
+                     timeText = 'منذ ${timeDiff.inDays} يوم';
+                   }
+
+                   return _ActivityItem(
+                     title: 'موعد ${app.statusLabel} : ${app.patient?.fullName ?? 'مريض'}',
+                     time: timeText,
+                     icon: Icons.calendar_month_outlined,
+                     color: const Color(0xFFE3F2FD),
+                     iconColor: const Color(0xFF2196F3),
+                   );
+                 }).toList();
+              }(),
+              const SizedBox(height: 100),
             ],
           ),
         ),
@@ -277,7 +301,8 @@ class DashboardScreen extends ConsumerWidget {
 }
 
 class _RevenueCard extends StatelessWidget {
-  const _RevenueCard();
+  final double revenue;
+  const _RevenueCard({required this.revenue});
 
   @override
   Widget build(BuildContext context) {
@@ -325,13 +350,13 @@ class _RevenueCard extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
                     const Text(
-                      'SAR',
+                      'EGP',
                       style: TextStyle(color: Colors.white, fontSize: 16),
                     ),
                     const SizedBox(width: 8),
-                    const Text(
-                      '2,450',
-                      style: TextStyle(
+                    Text(
+                      revenue.toStringAsFixed(0),
+                      style: const TextStyle(
                         color: Colors.white,
                         fontSize: 32,
                         fontWeight: FontWeight.bold,
@@ -477,7 +502,7 @@ class _SummaryCard extends StatelessWidget {
 }
 
 class _AppointmentListCard extends StatelessWidget {
-  final dynamic appointment; 
+  final Appointment appointment; 
   const _AppointmentListCard({required this.appointment});
 
   @override
@@ -507,32 +532,36 @@ class _AppointmentListCard extends StatelessWidget {
                   color: const Color(0xFFE0F2F1),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: const Text(
-                  'AM 09:30',
-                  style: TextStyle(color: Color(0xFF006D63), fontSize: 12, fontWeight: FontWeight.bold),
+                child: Text(
+                  appointment.appointmentTime ?? 'غير محدد',
+                  style: const TextStyle(color: Color(0xFF006D63), fontSize: 12, fontWeight: FontWeight.bold),
                 ),
               ),
               const Spacer(),
               const CircleAvatar(
                 radius: 20,
-                backgroundImage: AssetImage('assets/images/user1.png'), 
+                backgroundImage: AssetImage('assets/images/placeholder_doctor.png'), 
               ),
             ],
           ),
           const SizedBox(height: 12),
-          const Flexible(
+          Flexible(
             child: Align(
               alignment: Alignment.centerRight,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(
-                    'سارة محمد',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                    appointment.patient?.fullName ?? 'بدون اسم',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                   Text(
-                    'مراجعة عامة',
-                    style: TextStyle(color: Colors.grey, fontSize: 13),
+                    appointment.notes?.isNotEmpty == true ? appointment.notes! : 'مراجعة',
+                    style: const TextStyle(color: Colors.grey, fontSize: 13),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ],
               ),

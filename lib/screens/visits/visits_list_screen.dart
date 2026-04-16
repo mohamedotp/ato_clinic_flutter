@@ -38,7 +38,7 @@ class VisitsListScreen extends ConsumerWidget {
         ],
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () => _showAddEditVisit(context, ref),
+        onPressed: () => AddEditVisitModal.show(context),
         backgroundColor: primaryColor,
         child: const Icon(Icons.add_task, color: Colors.white),
       ),
@@ -59,7 +59,7 @@ class VisitsListScreen extends ConsumerWidget {
               Expanded(
                 child: _MetricCard(
                   title: 'إيرادات الحصيلة',
-                  value: '${totalRevenue.toInt()} ر.س',
+                  value: '${totalRevenue.toInt()} ج.م',
                   icon: Icons.account_balance_wallet_outlined,
                   color: const Color(0xFFE0F2F1),
                   iconColor: Colors.teal,
@@ -93,19 +93,10 @@ class VisitsListScreen extends ConsumerWidget {
         final visit = visits[index];
         return _VisitCard(
           visit: visit,
-          onEdit: () => _showAddEditVisit(context, ref, visit),
+          onEdit: () => AddEditVisitModal.show(context, visit: visit),
           onDelete: () => _deleteVisit(context, ref, visit.id),
         );
       },
-    );
-  }
-
-  void _showAddEditVisit(BuildContext context, WidgetRef ref, [Visit? visit]) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => _AddEditVisitBottomSheet(visit: visit),
     );
   }
 
@@ -208,7 +199,7 @@ class _VisitCard extends ConsumerWidget {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(color: const Color(0xFFF1F8E9), borderRadius: BorderRadius.circular(8)),
-                      child: Text('${visit.cost.toInt()} ر.س', style: const TextStyle(color: Colors.green, fontSize: 11, fontWeight: FontWeight.bold)),
+                      child: Text('${visit.cost.toInt()} ج.م', style: const TextStyle(color: Colors.green, fontSize: 11, fontWeight: FontWeight.bold)),
                     ),
                     const SizedBox(width: 8),
                     Text(DateFormat('yyyy/MM/dd - hh:mm a').format(visit.visitDate ?? DateTime.now()), style: const TextStyle(color: Colors.grey, fontSize: 10)),
@@ -218,27 +209,36 @@ class _VisitCard extends ConsumerWidget {
             ),
           ),
           const SizedBox(width: 16),
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(color: const Color(0xFF006D63).withOpacity(0.1), borderRadius: BorderRadius.circular(16)),
-            child: Center(child: Text(visit.patient?.fullName[0] ?? 'أ', style: const TextStyle(color: Color(0xFF006D63), fontWeight: FontWeight.bold, fontSize: 20))),
-          ),
+          // Container(
+          //   width: 48,
+          //   height: 48,
+          //   decoration: BoxDecoration(color: const Color(0xFF006D63).withOpacity(0.1), borderRadius: BorderRadius.circular(16)),
+          //   child: Center(child: Text(visit.patient?.fullName[0] ?? 'أ', style: const TextStyle(color: Color(0xFF006D63), fontWeight: FontWeight.bold, fontSize: 20))),
+          // ),
         ],
       ),
     );
   }
 }
 
-class _AddEditVisitBottomSheet extends ConsumerStatefulWidget {
+class AddEditVisitModal extends ConsumerStatefulWidget {
   final Visit? visit;
-  const _AddEditVisitBottomSheet({this.visit});
+  const AddEditVisitModal({super.key, this.visit});
+
+  static void show(BuildContext context, {Visit? visit}) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => AddEditVisitModal(visit: visit),
+    );
+  }
 
   @override
-  ConsumerState<_AddEditVisitBottomSheet> createState() => _AddEditVisitBottomSheetState();
+  ConsumerState<AddEditVisitModal> createState() => _AddEditVisitModalState();
 }
 
-class _AddEditVisitBottomSheetState extends ConsumerState<_AddEditVisitBottomSheet> {
+class _AddEditVisitModalState extends ConsumerState<AddEditVisitModal> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _diagnosisController;
   late TextEditingController _treatmentController;
@@ -305,23 +305,92 @@ class _AddEditVisitBottomSheetState extends ConsumerState<_AddEditVisitBottomShe
               const SizedBox(height: 24),
               const Text('تسجيل زيارة جديدة', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
               const SizedBox(height: 24),
-              // Patient Dropdown
+              // Patient Search
               patientsAsync.when(
-                data: (patients) => DropdownButtonFormField<String>(
-                  value: _selectedPatientId,
-                  items: patients.map((p) => DropdownMenuItem(value: p.id, child: Text(p.fullName, textAlign: TextAlign.right))).toList(),
-                  onChanged: (val) => setState(() => _selectedPatientId = val),
-                  decoration: const InputDecoration(labelText: 'اختر المريض', alignLabelWithHint: true, border: OutlineInputBorder()),
-                ),
+                data: (patients) {
+                  return SearchAnchor(
+                    builder: (BuildContext context, SearchController controller) {
+                      if (_selectedPatientId != null && controller.text.isEmpty) {
+                        final p = patients.firstWhere((p) => p.id == _selectedPatientId);
+                        controller.text = p.fullName;
+                      }
+                      return TextFormField(
+                        controller: controller,
+                        readOnly: true,
+                        textAlign: TextAlign.right,
+                        onTap: () => controller.openView(),
+                        decoration: InputDecoration(
+                          labelText: 'اختر المريض',
+                          prefixIcon: const Icon(Icons.person_search),
+                          border: const OutlineInputBorder(),
+                        ),
+                        validator: (value) => _selectedPatientId == null ? 'يرجى اختيار مريض' : null,
+                      );
+                    },
+                    isFullScreen: false,
+                    viewConstraints: const BoxConstraints(maxHeight: 300),
+                    suggestionsBuilder: (BuildContext context, SearchController controller) {
+                      final String query = controller.text.toLowerCase();
+                      final filtered = patients.where((p) => p.fullName.toLowerCase().contains(query)).toList();
+                      return filtered.map((p) => ListTile(
+                        title: Text(p.fullName, textAlign: TextAlign.right),
+                        subtitle: Text(p.phone ?? '', textAlign: TextAlign.right),
+                        onTap: () {
+                          setState(() => _selectedPatientId = p.id);
+                          controller.closeView(p.fullName);
+                        },
+                      ));
+                    },
+                  );
+                },
                 loading: () => const LinearProgressIndicator(),
-                error: (_, __) => const Text('Error loading patients'),
+                error: (e, __) => Text('Error: $e'),
               ),
               const SizedBox(height: 16),
               _buildTextField('التشخيص', _diagnosisController, Icons.medical_information_outlined),
               const SizedBox(height: 16),
               _buildTextField('الخطة العلاجية', _treatmentController, Icons.healing_outlined, 3),
               const SizedBox(height: 16),
-              _buildTextField('التكلفة (ر.س)', _costController, Icons.payments_outlined, 1, TextInputType.number),
+              const Align(
+                alignment: Alignment.centerRight,
+                child: Text('الخدمات المقدمة (اختياري)', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
+              ),
+              const SizedBox(height: 8),
+              servicesAsync.when(
+                data: (services) => SizedBox(
+                  width: double.infinity,
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    alignment: WrapAlignment.end,
+                    children: services.map((s) {
+                      final isSelected = _selectedServiceIds.contains(s.id);
+                      return FilterChip(
+                        label: Text('${s.name} (${s.price} ج.م)'),
+                        selected: isSelected,
+                        selectedColor: const Color(0xFF00302D).withOpacity(0.2),
+                        checkmarkColor: const Color(0xFF00302D),
+                        onSelected: (selected) {
+                          setState(() {
+                            final currentCost = double.tryParse(_costController.text) ?? 0;
+                            final newCost = selected ? (currentCost + s.price) : (currentCost - s.price);
+                            if (selected) {
+                              _selectedServiceIds.add(s.id);
+                            } else {
+                              _selectedServiceIds.remove(s.id);
+                            }
+                            _costController.text = newCost == newCost.toInt() ? newCost.toInt().toString() : newCost.toString();
+                          });
+                        },
+                      );
+                    }).toList(),
+                  ),
+                ),
+                loading: () => const LinearProgressIndicator(),
+                error: (e, __) => const Text('خطأ في تحميل الخدمات', textAlign: TextAlign.right),
+              ),
+              const SizedBox(height: 16),
+              _buildTextField('التكلفة (ج.م) - سيتم تحديثها تلقائياً', _costController, Icons.payments_outlined, 1, TextInputType.number),
               const SizedBox(height: 32),
               SizedBox(
                 width: double.infinity,

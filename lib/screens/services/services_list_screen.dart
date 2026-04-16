@@ -166,7 +166,7 @@ class _ServiceCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '${service.price} ر.س',
+                  '${service.price}ج.م',
                   style: const TextStyle(color: Color(0xFF006D63), fontWeight: FontWeight.w900, fontSize: 16),
                 ),
                 const SizedBox(height: 8),
@@ -278,7 +278,7 @@ class _AddEditServiceBottomSheetState extends ConsumerState<_AddEditServiceBotto
                 children: [
                   Expanded(child: _buildField('المدة (د)', _durationController, Icons.timer_outlined, TextInputType.number)),
                   const SizedBox(width: 16),
-                  Expanded(child: _buildField('السعر (ر.س)', _priceController, Icons.money, TextInputType.number)),
+                  Expanded(child: _buildField('السعر (ج.م)', _priceController, Icons.money, TextInputType.number)),
                 ],
               ),
               const SizedBox(height: 20),
