@@ -58,7 +58,7 @@ class _AiDashboardScreenState extends ConsumerState<AiDashboardScreen> {
                       Switch(
                         value: _isAiEnabled,
                         onChanged: (val) => setState(() => _isAiEnabled = val),
-                        activeColor: Colors.white,
+                        activeThumbColor: Colors.white,
                         activeTrackColor: Colors.white24,
                       ),
                       Row(

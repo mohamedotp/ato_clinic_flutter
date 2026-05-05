@@ -46,7 +46,7 @@ class Patient {
 
   Map<String, dynamic> toJson() {
     return {
-      if (id != null) 'id': id,
+      'id': id,
       'clinic_id': clinicId,
       'full_name': fullName,
       'phone': phone,

@@ -344,7 +344,7 @@ class _AddEditVisitModalState extends ConsumerState<AddEditVisitModal> {
                   );
                 },
                 loading: () => const LinearProgressIndicator(),
-                error: (e, __) => Text('Error: $e'),
+                error: (e, _) => Text('Error: $e'),
               ),
               const SizedBox(height: 16),
               _buildTextField('التشخيص', _diagnosisController, Icons.medical_information_outlined),
@@ -387,7 +387,7 @@ class _AddEditVisitModalState extends ConsumerState<AddEditVisitModal> {
                   ),
                 ),
                 loading: () => const LinearProgressIndicator(),
-                error: (e, __) => const Text('خطأ في تحميل الخدمات', textAlign: TextAlign.right),
+                error: (e, _) => const Text('خطأ في تحميل الخدمات', textAlign: TextAlign.right),
               ),
               const SizedBox(height: 16),
               _buildTextField('التكلفة (ج.م) - سيتم تحديثها تلقائياً', _costController, Icons.payments_outlined, 1, TextInputType.number),

@@ -76,12 +76,30 @@ class AuthNotifier extends StateNotifier<AuthState> {
           return;
         }
 
-        // Check if clinic is active
-        final active = await _authService.isClinicActive(profile.clinicId!);
-        if (!active) {
+        // Check if clinic is active and subscription is valid
+        final status = await _authService.getClinicStatus(profile.clinicId!);
+        if (status == null) {
+          await _authService.signOut();
+          state = AuthError('تعذر التحقق من حالة العيادة.');
+          return;
+        }
+
+        final bool isActive = status['is_active'] ?? false;
+        final String? subEndsAtStr = status['subscription_ends_at'];
+        
+        if (!isActive) {
           await _authService.signOut();
           state = AuthError('عذراً، هذه العيادة متوقفة حالياً. يرجى مراجعة الإدارة.');
           return;
+        }
+
+        if (subEndsAtStr != null) {
+          final subEndsAt = DateTime.parse(subEndsAtStr);
+          if (subEndsAt.isBefore(DateTime.now())) {
+            await _authService.signOut();
+            state = AuthError('عذراً، لم يتم تجديد الاشتراك لهذه العيادة. يرجى التواصل مع الإدارة للتجديد.');
+            return;
+          }
         }
       }
 
@@ -127,6 +145,42 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   Future<void> signOut() async {
     await _authService.signOut();
+  }
+
+  /// Super admin: switch into a specific clinic context
+  void selectClinic(String clinicId) {
+    if (state is! AuthAuthenticated) return;
+    final current = state as AuthAuthenticated;
+    final oldProfile = current.profile;
+    if (oldProfile == null) return;
+
+    final updatedProfile = Profile(
+      id: oldProfile.id,
+      email: oldProfile.email,
+      fullName: oldProfile.fullName,
+      avatarUrl: oldProfile.avatarUrl,
+      role: oldProfile.role,
+      clinicId: clinicId,
+    );
+    state = AuthAuthenticated(current.user, updatedProfile);
+  }
+
+  /// Super admin: return to management dashboard (clear clinic selection)
+  void exitClinicContext() {
+    if (state is! AuthAuthenticated) return;
+    final current = state as AuthAuthenticated;
+    final oldProfile = current.profile;
+    if (oldProfile == null || oldProfile.role != UserRole.super_admin) return;
+
+    final updatedProfile = Profile(
+      id: oldProfile.id,
+      email: oldProfile.email,
+      fullName: oldProfile.fullName,
+      avatarUrl: oldProfile.avatarUrl,
+      role: oldProfile.role,
+      clinicId: null,
+    );
+    state = AuthAuthenticated(current.user, updatedProfile);
   }
 
   Future<void> updateProfile(Map<String, dynamic> updates) async {

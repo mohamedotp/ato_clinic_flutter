@@ -12,6 +12,7 @@ class Profile {
   final String? avatarUrl;
   final UserRole? role;
   final String? clinicId;
+  final bool isAvailable;
 
   Profile({
     required this.id,
@@ -20,6 +21,7 @@ class Profile {
     this.avatarUrl,
     this.role,
     this.clinicId,
+    this.isAvailable = true,
   });
 
   factory Profile.fromJson(Map<String, dynamic> json) {
@@ -32,6 +34,7 @@ class Profile {
           ? UserRole.values.where((e) => e.name == json['role']).firstOrNull 
           : null,
       clinicId: json['clinic_id'],
+      isAvailable: json['is_available'] ?? true,
     );
   }
 
@@ -43,6 +46,7 @@ class Profile {
       'avatar_url': avatarUrl,
       'role': role?.name,
       'clinic_id': clinicId,
+      'is_available': isAvailable,
     };
   }
 }

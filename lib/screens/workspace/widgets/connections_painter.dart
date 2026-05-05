@@ -128,13 +128,15 @@ class ConnectionsPainter extends CustomPainter {
     Offset cp1 = p1;
     Offset cp2 = p2;
 
-    if (bestFrom.dir == 'right') cp1 += Offset(horizontalStrength, 0);
-    else if (bestFrom.dir == 'left') cp1 -= Offset(horizontalStrength, 0);
+    if (bestFrom.dir == 'right') {
+      cp1 += Offset(horizontalStrength, 0);
+    } else if (bestFrom.dir == 'left') cp1 -= Offset(horizontalStrength, 0);
     else if (bestFrom.dir == 'down') cp1 += Offset(0, verticalStrength);
     else if (bestFrom.dir == 'up') cp1 -= Offset(0, verticalStrength);
 
-    if (bestTo.dir == 'right') cp2 -= Offset(horizontalStrength, 0);
-    else if (bestTo.dir == 'left') cp2 += Offset(horizontalStrength, 0);
+    if (bestTo.dir == 'right') {
+      cp2 -= Offset(horizontalStrength, 0);
+    } else if (bestTo.dir == 'left') cp2 += Offset(horizontalStrength, 0);
     else if (bestTo.dir == 'down') cp2 -= Offset(0, verticalStrength);
     else if (bestTo.dir == 'up') cp2 += Offset(0, verticalStrength);
 

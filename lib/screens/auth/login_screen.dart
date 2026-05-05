@@ -166,7 +166,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                   const SizedBox(width: 12),
                                   Expanded(
                                     child: Text(
-                                      (authState as AuthError).message,
+                                      (authState).message,
                                       style: const TextStyle(
                                         color: Color(0xFF991B1B), // Dark Red text
                                         fontSize: 13,

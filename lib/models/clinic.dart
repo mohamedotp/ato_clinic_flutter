@@ -6,6 +6,8 @@ class Clinic {
   final List<String> holidays;
   final String plan;
   final bool isActive;
+  final bool isOpen;
+  final bool whatsappBookingEnabled;
   final DateTime? subscriptionEndsAt;
   final String whatsappNumber;
   final String evolutionInstance;
@@ -18,6 +20,8 @@ class Clinic {
     required this.holidays,
     this.plan = 'starter',
     this.isActive = true,
+    this.isOpen = true,
+    this.whatsappBookingEnabled = true,
     this.subscriptionEndsAt,
     this.whatsappNumber = '',
     this.evolutionInstance = '',
@@ -32,6 +36,8 @@ class Clinic {
       holidays: List<String>.from(json['holidays'] ?? ['الجمعة']),
       plan: json['plan'] ?? 'starter',
       isActive: json['is_active'] ?? true,
+      isOpen: json['is_open'] ?? true,
+      whatsappBookingEnabled: json['whatsapp_booking_enabled'] ?? true,
       subscriptionEndsAt: json['subscription_ends_at'] != null 
           ? DateTime.parse(json['subscription_ends_at']) 
           : null,
@@ -49,6 +55,8 @@ class Clinic {
       'holidays': holidays,
       'plan': plan,
       'is_active': isActive,
+      'is_open': isOpen,
+      'whatsapp_booking_enabled': whatsappBookingEnabled,
       if (subscriptionEndsAt != null) 
         'subscription_ends_at': subscriptionEndsAt!.toIso8601String(),
       'whatsapp_number': whatsappNumber,
@@ -63,6 +71,8 @@ class Clinic {
     List<String>? holidays,
     String? plan,
     bool? isActive,
+    bool? isOpen,
+    bool? whatsappBookingEnabled,
     DateTime? subscriptionEndsAt,
     String? whatsappNumber,
     String? evolutionInstance,
@@ -75,6 +85,8 @@ class Clinic {
       holidays: holidays ?? this.holidays,
       plan: plan ?? this.plan,
       isActive: isActive ?? this.isActive,
+      isOpen: isOpen ?? this.isOpen,
+      whatsappBookingEnabled: whatsappBookingEnabled ?? this.whatsappBookingEnabled,
       subscriptionEndsAt: subscriptionEndsAt ?? this.subscriptionEndsAt,
       whatsappNumber: whatsappNumber ?? this.whatsappNumber,
       evolutionInstance: evolutionInstance ?? this.evolutionInstance,

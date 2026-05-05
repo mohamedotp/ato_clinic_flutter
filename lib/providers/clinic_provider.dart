@@ -15,3 +15,14 @@ final clinicProvider = FutureProvider<Clinic?>((ref) async {
   }
   return null;
 });
+
+final clinicDoctorsProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
+  final authState = ref.watch(authProvider);
+  if (authState is AuthAuthenticated) {
+    final clinicId = authState.profile?.clinicId;
+    if (clinicId != null) {
+      return ref.read(clinicServiceProvider).getClinicDoctors(clinicId);
+    }
+  }
+  return [];
+});

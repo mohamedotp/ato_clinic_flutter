@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../providers/clinic_provider.dart';
 import '../../models/clinic.dart';
+import '../../models/profile.dart';
 import '../../providers/auth_provider.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
@@ -160,6 +161,172 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ),
                 
                 const SizedBox(height: 24),
+
+                // Live Status Section
+                _buildSectionHeader('الحالة المباشرة للعيادة'),
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: clinic.isOpen ? const Color(0xFFE6F3F1) : Colors.red[50],
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(color: clinic.isOpen ? const Color(0xFF006D63).withValues(alpha: 0.2) : Colors.red.withValues(alpha: 0.2)),
+                  ),
+                  child: Row(
+                    children: [
+                      Switch.adaptive(
+                        value: clinic.isOpen,
+                        activeThumbColor: const Color(0xFF006D63),
+                        activeTrackColor: const Color(0xFF006D63).withValues(alpha: 0.5),
+                        onChanged: (val) => _updateSettings(clinic, {'is_open': val}),
+                      ),
+                      const Spacer(),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            clinic.isOpen ? 'العيادة مفتوحة حالياً' : 'العيادة مغلقة حالياً',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: clinic.isOpen ? const Color(0xFF006D63) : Colors.red,
+                            ),
+                          ),
+                          const Text(
+                            'عند الإغلاق، سيتم إخبار المرضى بأن العيادة مغلقة',
+                            style: TextStyle(fontSize: 11, color: Colors.grey),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(width: 12),
+                      Icon(
+                        clinic.isOpen ? Icons.check_circle : Icons.do_not_disturb_on,
+                        color: clinic.isOpen ? const Color(0xFF006D63) : Colors.red,
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 16),
+
+                // WhatsApp Booking Toggle
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: clinic.whatsappBookingEnabled
+                        ? const Color(0xFFE8F5E9)
+                        : const Color(0xFFFFF3E0),
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(
+                      color: clinic.whatsappBookingEnabled
+                          ? Colors.green.withValues(alpha: 0.3)
+                          : Colors.orange.withValues(alpha: 0.3),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Switch.adaptive(
+                        value: clinic.whatsappBookingEnabled,
+                        activeThumbColor: Colors.green[700],
+                        activeTrackColor: Colors.green.withValues(alpha: 0.4),
+                        inactiveThumbColor: Colors.orange[700],
+                        inactiveTrackColor: Colors.orange.withValues(alpha: 0.3),
+                        onChanged: (val) => _updateSettings(
+                            clinic, {'whatsapp_booking_enabled': val}),
+                      ),
+                      const Spacer(),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            clinic.whatsappBookingEnabled
+                                ? 'الحجز عبر واتساب مفعّل'
+                                : 'الحجز عند الوصول فقط',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                              color: clinic.whatsappBookingEnabled
+                                  ? Colors.green[700]
+                                  : Colors.orange[800],
+                            ),
+                          ),
+                          Text(
+                            clinic.whatsappBookingEnabled
+                                ? ' يقبل الحجز من واتساب'
+                                : ' يطلب الحضور للعيادة',
+                            style: const TextStyle(fontSize: 11, color: Colors.grey),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(width: 12),
+                      Icon(
+                        clinic.whatsappBookingEnabled
+                            ? Icons.chat
+                            : Icons.location_on_outlined,
+                        color: clinic.whatsappBookingEnabled
+                            ? Colors.green[700]
+                            : Colors.orange[700],
+                        size: 28,
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 24),
+
+                // Doctor Availability Section
+                _buildSectionHeader('تواجد الأطباء الآن'),
+                ref.watch(clinicDoctorsProvider).when(
+                  data: (doctors) {
+                    if (doctors.isEmpty) {
+                      return const Center(child: Text('لا يوجد أطباء مسجلين حالياً', style: TextStyle(color: Colors.grey)));
+                    }
+                    return Column(
+                      children: doctors.map((doc) => Container(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 5)],
+                        ),
+                        child: Row(
+                          children: [
+                            Switch.adaptive(
+                              value: doc['is_available'] ?? false,
+                              activeThumbColor: const Color(0xFF006D63),
+                              activeTrackColor: const Color(0xFF006D63).withValues(alpha: 0.5),
+                              onChanged: (val) async {
+                                try {
+                                  await ref.read(clinicServiceProvider).updateDoctorAvailability(doc['id'] as String, val);
+                                  ref.invalidate(clinicDoctorsProvider);
+                                } catch (e) {
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('خطأ: $e')));
+                                  }
+                                }
+                              },
+                            ),
+                            const Spacer(),
+                            Text(
+                              doc['full_name'] ?? 'طبيب',
+                              style: const TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                            const SizedBox(width: 12),
+                            const CircleAvatar(
+                              radius: 15,
+                              backgroundColor: Color(0xFFF0F4F3),
+                              child: Icon(Icons.person, size: 18, color: Color(0xFF006D63)),
+                            ),
+                          ],
+                        ),
+                      )).toList(),
+                    );
+                  },
+                  loading: () => const LinearProgressIndicator(),
+                  error: (err, stack) => const Text('فشل تحميل قائمة الأطباء'),
+                ),
+                
+                const SizedBox(height: 32),
                 
                 _buildSectionHeader('الملف الشخصي'),
                 _buildTextField(
@@ -176,7 +343,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(24),
-                    boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10)],
+                    boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 10)],
                   ),
                   child: Column(
                     children: [
@@ -220,7 +387,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                             }
                             _updateSettings(clinic, {'holidays': newHolidays});
                           },
-                          selectedColor: Colors.redAccent.withOpacity(0.1),
+                          selectedColor: Colors.redAccent.withValues(alpha: 0.1),
                           checkmarkColor: Colors.redAccent,
                           labelStyle: TextStyle(
                             color: isHoliday ? Colors.redAccent : Colors.grey,
@@ -231,15 +398,36 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                             side: BorderSide(color: isHoliday ? Colors.redAccent : Colors.grey[200]!),
                           ),
                         );
-                      }).toList().reversed.toList()
+                      }).toList()
                     : [],
                 ),
 
                 const SizedBox(height: 40),
                 
-                _buildAIInfo(),
-                
                 const SizedBox(height: 40),
+                
+                // Exit Clinic Context (For Super Admins)
+                if (authState is AuthAuthenticated && authState.profile?.role == UserRole.super_admin)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: SizedBox(
+                      width: double.infinity,
+                      height: 60,
+                      child: OutlinedButton.icon(
+                        onPressed: () {
+                          ref.read(authProvider.notifier).exitClinicContext();
+                          context.go('/super-admin');
+                        },
+                        icon: const Icon(Icons.admin_panel_settings, color: primaryColor),
+                        label: const Text('العودة للإدارة العامة', 
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: primaryColor)),
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: primaryColor, width: 2),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        ),
+                      ),
+                    ),
+                  ),
 
                 // Logout Button
                 SizedBox(
@@ -300,7 +488,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.01), blurRadius: 5)],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.01), blurRadius: 5)],
       ),
       child: TextField(
         controller: controller,
@@ -317,6 +505,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
+  // ignore: unused_element
   Widget _buildAIInfo() {
     return Container(
       padding: const EdgeInsets.all(20),
@@ -341,6 +530,18 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
+  String _formatTime12Hour(String time24) {
+    if (time24.isEmpty) return '';
+    final parts = time24.split(':');
+    if (parts.length < 2) return time24;
+    int hour = int.tryParse(parts[0]) ?? 0;
+    int minute = int.tryParse(parts[1]) ?? 0;
+    String amPm = hour >= 12 ? 'مساءً' : 'صباحاً';
+    int hour12 = hour % 12;
+    if (hour12 == 0) hour12 = 12;
+    return '${hour12.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')} $amPm';
+  }
+
   Widget _buildTimeTile(BuildContext context, String label, String time, IconData icon, Function(String) onUpdate) {
     return InkWell(
       onTap: () => _selectTime(context, time, onUpdate),
@@ -351,7 +552,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             const Icon(Icons.arrow_back_ios, size: 14, color: Colors.grey),
             const Spacer(),
             Text(
-              time,
+              _formatTime12Hour(time),
               style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: Color(0xFF00302D)),
             ),
             const SizedBox(width: 16),
@@ -386,9 +587,9 @@ class _ActionCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.05),
+          color: color.withValues(alpha: 0.05),
           borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: color.withOpacity(0.1)),
+          border: Border.all(color: color.withValues(alpha: 0.1)),
         ),
         child: Column(
           children: [

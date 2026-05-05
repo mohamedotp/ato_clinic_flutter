@@ -19,7 +19,10 @@ class Appointment {
   final DateTime createdAt;
   final DateTime updatedAt;
   final DateTime? appointmentDate;
-  final String? appointmentTime;
+  final int? queueNumber;
+  final String type;
+  final List<String> serviceIds;
+  final double totalPrice;
   
   // Joined Data
   final Patient? patient;
@@ -36,7 +39,10 @@ class Appointment {
     required this.createdAt,
     required this.updatedAt,
     this.appointmentDate,
-    this.appointmentTime,
+    this.queueNumber,
+    this.type = 'appointment',
+    this.serviceIds = const [],
+    this.totalPrice = 0.0,
     this.patient,
     this.doctorName,
   });
@@ -53,7 +59,10 @@ class Appointment {
       createdAt: DateTime.parse(json['created_at']),
       updatedAt: DateTime.parse(json['updated_at']),
       appointmentDate: json['appointment_date'] != null ? DateTime.parse(json['appointment_date']) : null,
-      appointmentTime: json['appointment_time'],
+      queueNumber: json['queue_number'],
+      type: json['type'] ?? 'appointment',
+      serviceIds: json['service_ids'] != null ? List<String>.from(json['service_ids']) : [],
+      totalPrice: json['total_price'] != null ? double.parse(json['total_price'].toString()) : 0.0,
       patient: json['patients'] != null ? Patient.fromJson(json['patients']) : null,
       doctorName: json['profiles'] != null ? json['profiles']['full_name'] : null,
     );
@@ -79,6 +88,16 @@ class Appointment {
     }
   }
 
+  String get typeLabel {
+    switch (type) {
+      case 'examination': return 'كشف عادي';
+      case 'consultation': return 'استشارة';
+      case 'session': return 'جلسة';
+      case 'appointment':
+      default: return 'موعد عام';
+    }
+  }
+
   Map<String, dynamic> toJson() {
     return {
       'clinic_id': clinicId,
@@ -87,7 +106,10 @@ class Appointment {
       'status': status.name,
       'notes': notes,
       'appointment_date': appointmentDate?.toIso8601String(),
-      'appointment_time': appointmentTime,
+      'queue_number': queueNumber,
+      'type': type,
+      'service_ids': serviceIds,
+      'total_price': totalPrice,
     };
   }
 }

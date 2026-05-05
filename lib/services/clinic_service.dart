@@ -16,4 +16,19 @@ class ClinicService {
   Future<void> updateClinic(String clinicId, Map<String, dynamic> data) async {
     await _client.from('clinics').update(data).eq('id', clinicId);
   }
+
+  Future<List<Map<String, dynamic>>> getClinicDoctors(String clinicId) async {
+    return await _client
+        .from('profiles')
+        .select('id, full_name, is_available')
+        .eq('clinic_id', clinicId)
+        .eq('role', 'doctor');
+  }
+
+  Future<void> updateDoctorAvailability(String doctorId, bool isAvailable) async {
+    await _client
+        .from('profiles')
+        .update({'is_available': isAvailable})
+        .eq('id', doctorId);
+  }
 }

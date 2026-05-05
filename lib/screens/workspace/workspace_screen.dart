@@ -445,13 +445,15 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
             child: Column(
               children: [
                 _FabControl(icon: Icons.add, onTap: () {
-                  final matrix = _transformationController.value;
-                  _transformationController.value = matrix..scale(1.1);
+                  final matrix = _transformationController.value.clone();
+                  matrix.scale(1.2);
+                  _transformationController.value = matrix;
                 }),
                 const SizedBox(height: 12),
                 _FabControl(icon: Icons.remove, onTap: () {
-                  final matrix = _transformationController.value;
-                  _transformationController.value = matrix..scale(0.9);
+                  final matrix = _transformationController.value.clone();
+                  matrix.scale(0.8);
+                  _transformationController.value = matrix;
                 }),
               ],
             ),
@@ -469,27 +471,27 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
   Widget _buildNode(WorkspaceNote note, WorkspaceNotifier notifier) {
     final isSelected = _selectedNoteId == note.id;
 
-    final onTap = () => setState(() => _selectedNoteId = note.id);
-    final onDelete = () async {
+    void onTap() => setState(() => _selectedNoteId = note.id);
+    Future<void> onDelete() async {
       if (await _confirmDelete()) {
         notifier.deleteNote(note.id);
       }
-    };
-    final onTitleChange = (String title) => notifier.updateNoteLocal(note.copyWith(title: title));
-    final onColorChange = (String colorHex) => notifier.updateNoteInDb(note.copyWith(colorCustom: colorHex));
-    final onPositionUpdate = (double x, double y) => notifier.updateNoteInDb(note.copyWith(positionX: x, positionY: y));
-    final onContentChange = (String content) => notifier.updateNoteLocal(note.copyWith(content: content));
-    final onMetadataChange = (Map<String, dynamic> metadata) => notifier.updateNoteInDb(note.copyWith(metadata: metadata));
-    final onToggleLock = () => notifier.updateNoteInDb(note.copyWith(isLocked: !note.isLocked));
-    final onClearConnections = () => notifier.clearConnectionsForNote(note.id);
+    }
+    Future<void> onTitleChange(String title) => notifier.updateNoteLocal(note.copyWith(title: title));
+    Future<void> onColorChange(String colorHex) => notifier.updateNoteInDb(note.copyWith(colorCustom: colorHex));
+    Future<void> onPositionUpdate(double x, double y) => notifier.updateNoteInDb(note.copyWith(positionX: x, positionY: y));
+    Future<void> onContentChange(String content) => notifier.updateNoteLocal(note.copyWith(content: content));
+    Future<void> onMetadataChange(Map<String, dynamic> metadata) => notifier.updateNoteInDb(note.copyWith(metadata: metadata));
+    Future<void> onToggleLock() => notifier.updateNoteInDb(note.copyWith(isLocked: !note.isLocked));
+    Future<void> onClearConnections() => notifier.clearConnectionsForNote(note.id);
     
-    final onConnectStart = (String id, Offset localPoint) {
+    Null onConnectStart(String id, Offset localPoint) {
       if (!isSelected) return;
       setState(() {
         _activeDragFromId = id;
         _activeDragToPoint = localPoint;
       });
-    };
+    }
 
     switch (note.type) {
       case 'visit': return VisitNoteNodeWidget(note: note, isSelected: isSelected, onTap: onTap, onDelete: onDelete, onTitleChange: onTitleChange, onColorChange: onColorChange, onMetadataChange: onMetadataChange, onPositionUpdate: onPositionUpdate, onConnectStart: onConnectStart, onToggleLock: onToggleLock, onClearConnections: onClearConnections);

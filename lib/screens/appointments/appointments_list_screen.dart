@@ -10,10 +10,10 @@ import '../visits/visits_list_screen.dart';
 class AppointmentsListScreen extends ConsumerStatefulWidget {
   const AppointmentsListScreen({super.key});
 
-  @override
+  @override 
   ConsumerState<AppointmentsListScreen> createState() => _AppointmentsListScreenState();
 }
-
+    
 enum ViewMode { month, day }
 
 class _AppointmentsListScreenState extends ConsumerState<AppointmentsListScreen> {
@@ -28,7 +28,7 @@ class _AppointmentsListScreenState extends ConsumerState<AppointmentsListScreen>
   List<DateTime> _calculateCalendarDays(DateTime monthDate) {
     final monthStart = DateTime(monthDate.year, monthDate.month, 1);
     final monthEnd = DateTime(monthDate.year, monthDate.month + 1, 0);
-    
+      
     // Saturday is 6 in Dart (same as weekStartsOn: 6 in date-fns)
     // We want the start of the week containing monthStart, where week starts on Saturday
     // Calculation: (weekday - 6) % 7
@@ -61,30 +61,6 @@ class _AppointmentsListScreenState extends ConsumerState<AppointmentsListScreen>
     return _isSameDay(date, DateTime.now());
   }
 
-  String _formatTime12h(String? timeStr) {
-    if (timeStr == null || !timeStr.contains(':')) return '--:--';
-    try {
-      final parts = timeStr.trim().split(' ');
-      final timeParts = parts[0].split(':');
-      int h = int.parse(timeParts[0]);
-      int m = int.parse(timeParts[1]);
-      
-      String period = 'ص';
-      if (parts.length > 1) {
-        period = parts[1] == 'PM' || parts[1] == 'م' ? 'م' : 'ص';
-      } else {
-        if (h >= 12) {
-          period = 'م';
-          if (h > 12) h -= 12;
-        } else if (h == 0) {
-          h = 12;
-        }
-      }
-      return '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')} $period';
-    } catch (e) {
-      return timeStr;
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -95,7 +71,21 @@ class _AppointmentsListScreenState extends ConsumerState<AppointmentsListScreen>
       body: SafeArea(
         child: appointmentsAsync.when(
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (err, _) => Center(child: Text('Error: $err')),
+          error: (err, _) => Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.error_outline, color: Colors.redAccent, size: 48),
+                const SizedBox(height: 16),
+                const Text('حدث خطأ أثناء تحميل المواعيد', style: TextStyle(color: Colors.redAccent, fontSize: 16, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 32),
+                  child: Text(err.toString(), textAlign: TextAlign.center, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                ),
+              ],
+            ),
+          ),
           data: (data) => LayoutBuilder(
             builder: (context, constraints) {
               final isDesktop = constraints.maxWidth > 1000;
@@ -139,6 +129,9 @@ class _AppointmentsListScreenState extends ConsumerState<AppointmentsListScreen>
   }
 
   Widget _buildHeader(bool isMobile) {
+    final today = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
+    final isPast = _viewMode == ViewMode.day && _selectedDayForView.isBefore(today);
+
     if (isMobile) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -156,30 +149,32 @@ class _AppointmentsListScreenState extends ConsumerState<AppointmentsListScreen>
               ),
             ],
           ),
-          const SizedBox(height: 20),
-          Row(
-            children: [
-              Expanded(
-                child: _buildActionBtn(
-                  icon: Icons.add,
-                  label: 'جدولة موعد',
-                  onPressed: () => AddEditAppointmentModal.show(context),
-                  color: secondaryColor,
-                  textColor: Colors.white,
+          if (!isPast) ...[
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildActionBtn(
+                    icon: Icons.add,
+                    label: 'جدولة موعد',
+                    onPressed: () => AddEditAppointmentModal.show(context, initialDate: _viewMode == ViewMode.day ? _selectedDayForView : null),
+                    color: secondaryColor,
+                    textColor: Colors.white,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _buildActionBtn(
-                  icon: Icons.add_task,
-                  label: 'زيارة جديدة',
-                  onPressed: () => AddEditVisitModal.show(context),
-                  color: primaryColor,
-                  textColor: Colors.white,
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _buildActionBtn(
+                    icon: Icons.add_task,
+                    label: 'زيارة جديدة',
+                    onPressed: () => AddEditVisitModal.show(context),
+                    color: primaryColor,
+                    textColor: Colors.white,
+                  ),
                 ),
-              ),
-            ],
-          ),
+              ],
+            ),
+          ],
           const SizedBox(height: 12),
           _buildMonthNav(),
           if (_viewMode == ViewMode.day) ...[
@@ -204,7 +199,7 @@ class _AppointmentsListScreenState extends ConsumerState<AppointmentsListScreen>
         const SizedBox(width: 16),
         Expanded(
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start, // Changed to start for better alignment with back button
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
                 'تقويم المواعيد والجدولة',
@@ -220,22 +215,24 @@ class _AppointmentsListScreenState extends ConsumerState<AppointmentsListScreen>
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                _buildActionBtn(
-                  icon: Icons.add,
-                  label: 'جدولة موعد جديد',
-                  onPressed: () => AddEditAppointmentModal.show(context),
-                  color: secondaryColor,
-                  textColor: Colors.white,
-                ),
-                const SizedBox(width: 12),
-                _buildActionBtn(
-                  icon: Icons.add_task,
-                  label: 'تسجيل زيارة',
-                  onPressed: () => AddEditVisitModal.show(context),
-                  color: primaryColor,
-                  textColor: Colors.white,
-                ),
-                const SizedBox(width: 12),
+                if (!isPast) ...[
+                  _buildActionBtn(
+                    icon: Icons.add,
+                    label: 'جدولة موعد جديد',
+                    onPressed: () => AddEditAppointmentModal.show(context, initialDate: _viewMode == ViewMode.day ? _selectedDayForView : null),
+                    color: secondaryColor,
+                    textColor: Colors.white,
+                  ),
+                  const SizedBox(width: 12),
+                  _buildActionBtn(
+                    icon: Icons.add_task,
+                    label: 'تسجيل زيارة',
+                    onPressed: () => AddEditVisitModal.show(context),
+                    color: primaryColor,
+                    textColor: Colors.white,
+                  ),
+                  const SizedBox(width: 12),
+                ],
                 _buildMonthNav(),
               ],
             ),
@@ -403,13 +400,10 @@ class _AppointmentsListScreenState extends ConsumerState<AppointmentsListScreen>
                               color: isToday ? primaryColor : Colors.grey[400],
                             ),
                           ),
-                          if (isSelectedMonth)
-                            IconButton(
-                              icon: const Icon(Icons.add, size: 14),
-                              onPressed: () => AddEditAppointmentModal.show(context),
-                              padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints(),
-                              color: primaryColor,
+                          if (isSelectedMonth && !day.isBefore(DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day)))
+                            GestureDetector(
+                              onTap: () => AddEditAppointmentModal.show(context, initialDate: day),
+                              child: const Icon(Icons.add, size: 14, color: primaryColor),
                             ),
                         ],
                       ),
@@ -455,30 +449,34 @@ class _AppointmentsListScreenState extends ConsumerState<AppointmentsListScreen>
 
   Widget _buildDayDetail(List<Appointment> data) {
     final dayAppointments = data.where((a) => _isSameDay(a.appointmentDate ?? a.createdAt, _selectedDayForView)).toList();
-    dayAppointments.sort((a,b) => (a.appointmentTime ?? '').compareTo(b.appointmentTime ?? ''));
+    dayAppointments.sort((a,b) => (a.queueNumber ?? 9999).compareTo(b.queueNumber ?? 9999));
 
     return Padding(
-      padding: const EdgeInsets.all(32),
+      padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                   const Text('مواعيد اليوم', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900)),
-                  Text('إجمالي ${dayAppointments.length} مواعيد مسجلة', style: const TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
-                ],
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('مواعيد اليوم', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
+                    Text('إجمالي ${dayAppointments.length} مواعيد مسجلة', style: const TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
+                  ],
+                ),
               ),
-              _buildActionBtn(
-                icon: Icons.add,
-                label: 'إضافة موعد لهذا اليوم',
-                onPressed: () => AddEditAppointmentModal.show(context),
-                color: primaryColor,
-                textColor: Colors.white,
-              ),
+              const SizedBox(width: 12),
+              if (!_selectedDayForView.isBefore(DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day)))
+                _buildActionBtn(
+                  icon: Icons.add,
+                  label: 'إضافة موعد',
+                  onPressed: () => AddEditAppointmentModal.show(context, initialDate: _selectedDayForView),
+                  color: primaryColor,
+                  textColor: Colors.white,
+                ),
             ],
           ),
           const SizedBox(height: 32),
@@ -510,14 +508,186 @@ class _AppointmentsListScreenState extends ConsumerState<AppointmentsListScreen>
     return InkWell(
       onTap: () => AddEditAppointmentModal.show(context, appointment: a),
       child: Container(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: const Color(0xFFF9FAFB),
+          color: Colors.white,
           borderRadius: BorderRadius.circular(24),
           border: Border.all(color: Colors.grey[100]!),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.03),
+              blurRadius: 15,
+              offset: const Offset(0, 5),
+            ),
+          ],
         ),
         child: Row(
           children: [
+            // Queue number block
+            Container(
+              width: 70,
+              height: 70,
+              decoration: BoxDecoration(
+                color: const Color(0xFFF9FAFB),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.grey[100]!),
+              ),
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      _getQueueNumberDisplay(a),
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                        color: primaryColor,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'رقم الحجز',
+                      style: TextStyle(
+                        color: Colors.grey,
+                        fontSize: 9,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            // Patient Info
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          (a.patient?.fullName.contains('Visitor') == true && a.notes != null && a.notes!.isNotEmpty)
+                              ? a.notes!
+                              : (a.patient?.fullName ?? 'بدون اسم'),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w900,
+                            fontSize: 16,
+                            color: secondaryColor,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      if (a.patient?.fullName.contains('Visitor') == true)
+                        const Padding(
+                          padding: EdgeInsets.only(right: 4),
+                          child: Icon(Icons.message, size: 16, color: Colors.green),
+                        ),
+                      InkWell(
+                        onTap: () => context.push('/workspace/${a.patientId}'),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: primaryColor.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.person_outline, size: 12, color: primaryColor),
+                              SizedBox(width: 4),
+                              Text(
+                                'الملف',
+                                style: TextStyle(
+                                  color: primaryColor,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 4,
+                    children: [
+                      if (a.patient?.fullName.contains('Visitor') == true && a.notes != null && a.notes!.isNotEmpty)
+                        Text(
+                          a.patient?.fullName ?? '',
+                          style: TextStyle(color: Colors.grey[400], fontSize: 11, fontWeight: FontWeight.bold),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.blue.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: Colors.blue.withValues(alpha: 0.2)),
+                        ),
+                        child: Text(
+                          a.typeLabel,
+                          style: const TextStyle(
+                            color: Colors.blue,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: statusColor.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: statusColor.withValues(alpha: 0.2)),
+                        ),
+                        child: Text(
+                          a.statusLabel,
+                          style: TextStyle(
+                            color: statusColor,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                      Text(
+                        a.patient?.phone ?? '',
+                        style: TextStyle(
+                          color: Colors.grey[600],
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      if (a.totalPrice > 0)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.orange.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: Colors.orange.withValues(alpha: 0.2)),
+                          ),
+                          child: Text(
+                            '${a.totalPrice} ج.م',
+                            style: const TextStyle(
+                              color: Colors.orange,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            // Actions
             Column(
               children: [
                 _buildActionBtnSmall(
@@ -526,73 +696,14 @@ class _AppointmentsListScreenState extends ConsumerState<AppointmentsListScreen>
                   iconColor: a.status == AppointmentStatus.confirmed ? Colors.white : Colors.grey,
                   onTap: () => _toggleStatus(a),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 10),
                 _buildActionBtnSmall(
                   icon: Icons.delete_outline,
                   color: Colors.white,
-                  iconColor: Colors.red,
+                  iconColor: Colors.red[300]!,
                   onTap: () => _deleteAppointment(a.id),
                 ),
               ],
-            ),
-            const SizedBox(width: 24),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      InkWell(
-                        onTap: () => context.push('/workspace/${a.patientId}'),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                          decoration: BoxDecoration(color: primaryColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
-                          child: const Row(
-                            children: [
-                              Text('ملف المريض', style: TextStyle(color: primaryColor, fontSize: 10, fontWeight: FontWeight.w900)),
-                              SizedBox(width: 4),
-                              Icon(Icons.person_pin, size: 14, color: primaryColor),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Text(a.patient?.fullName ?? 'بدون اسم', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                        decoration: BoxDecoration(color: statusColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
-                        child: Text(a.statusLabel, style: TextStyle(color: statusColor, fontSize: 10, fontWeight: FontWeight.w900)),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(a.patient?.phone ?? '', style: const TextStyle(color: Colors.grey, fontSize: 12)),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 24),
-            Container(
-              width: 80,
-              height: 80,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10)],
-              ),
-              child: Center(
-                child: Text(
-                  _formatTime12h(a.appointmentTime),
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: primaryColor),
-                ),
-              ),
             ),
           ],
         ),
@@ -717,7 +828,7 @@ class _AppointmentsListScreenState extends ConsumerState<AppointmentsListScreen>
               children: [
                 Text(a.patient?.fullName ?? 'مريض', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                 Text(
-                  '${showDate ? DateFormat('dd MMM', 'ar').format(a.appointmentDate ?? a.createdAt) + ' · ' : ''}${_formatTime12h(a.appointmentTime)}',
+                  '${showDate ? '${DateFormat('dd MMM', 'ar').format(a.appointmentDate ?? a.createdAt)} · ' : ''}رقم الحجز: ${_getQueueNumberDisplay(a)}',
                   style: const TextStyle(color: Colors.grey, fontSize: 10),
                 ),
               ],
@@ -786,6 +897,39 @@ class _AppointmentsListScreenState extends ConsumerState<AppointmentsListScreen>
     if (confirm == true) {
       await ref.read(appointmentService).deleteAppointment(id);
       ref.invalidate(appointmentsProvider);
+    }
+  }
+
+  String _getQueueNumberDisplay(Appointment a) {
+    if (a.queueNumber != null) {
+      return a.queueNumber.toString();
+    }
+    return '--';
+  }
+
+  String _formatTime12h(String? timeStr) {
+    if (timeStr == null || !timeStr.contains(':')) return '--:--';
+    try {
+      final parts = timeStr.trim().split(' ');
+      final timeParts = parts[0].split(':');
+      int h = int.parse(timeParts[0]);
+      int m = int.parse(timeParts[1]);
+      
+      String period = 'ص';
+      if (parts.length > 1) {
+        final p = parts[1].toLowerCase();
+        period = p.contains('pm') || p.contains('م') ? 'م' : 'ص';
+      } else {
+        if (h >= 12) {
+          period = 'م';
+          if (h > 12) h -= 12;
+        } else if (h == 0) {
+          h = 12;
+        }
+      }
+      return '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')} $period';
+    } catch (e) {
+      return timeStr;
     }
   }
 }

@@ -186,7 +186,7 @@ class _BaseNodeWrapperState extends State<BaseNodeWrapper> {
                                   child: Row(
                                     children: [
                                       Icon(Icons.link_off, size: 18),
-                                      const SizedBox(width: 8),
+                                      SizedBox(width: 8),
                                       Text('مسح الروابط'),
                                     ],
                                   ),
@@ -197,7 +197,7 @@ class _BaseNodeWrapperState extends State<BaseNodeWrapper> {
                                   child: Row(
                                     children: [
                                       Icon(Icons.delete, size: 18, color: Colors.red),
-                                      const SizedBox(width: 8),
+                                      SizedBox(width: 8),
                                       Text('حذف', style: TextStyle(color: Colors.red)),
                                     ],
                                   ),

@@ -30,17 +30,36 @@ class AuthService {
     }
   }
 
-  Future<bool> isClinicActive(String clinicId) async {
+  Future<Map<String, dynamic>?> getClinicStatus(String clinicId) async {
     try {
       final data = await _client
           .from('clinics')
-          .select('is_active')
+          .select('is_active, subscription_ends_at')
           .eq('id', clinicId)
           .single();
-      return data['is_active'] ?? false;
+      return data;
     } catch (e) {
-      return false;
+      return null;
     }
+  }
+
+  Future<bool> isClinicActive(String clinicId) async {
+    final status = await getClinicStatus(clinicId);
+    if (status == null) return false;
+    
+    final bool isActive = status['is_active'] ?? false;
+    final String? subEndsAtStr = status['subscription_ends_at'];
+    
+    if (!isActive) return false;
+    
+    if (subEndsAtStr != null) {
+      final subEndsAt = DateTime.parse(subEndsAtStr);
+      if (subEndsAt.isBefore(DateTime.now())) {
+        return false;
+      }
+    }
+    
+    return true;
   }
 
   Future<void> updateProfile(String id, Map<String, dynamic> updates) async {

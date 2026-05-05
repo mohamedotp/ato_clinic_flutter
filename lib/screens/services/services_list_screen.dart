@@ -71,7 +71,7 @@ class ServicesListScreen extends ConsumerWidget {
                   padding: const EdgeInsets.all(20),
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 2,
-                    childAspectRatio: 0.75,
+                    childAspectRatio: 1.3,
                     crossAxisSpacing: 16,
                     mainAxisSpacing: 16,
                   ),
@@ -136,23 +136,8 @@ class _ServiceCard extends StatelessWidget {
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.end,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          // Image / Icon
-          Expanded(
-            child: Container(
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: Colors.grey[100],
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-              ),
-              child: ClipRRect(
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-                child: service.image != null && service.image!.startsWith('http')
-                  ? Image.network(service.image!, fit: BoxFit.cover)
-                  : const Center(child: Icon(Icons.medical_services_outlined, color: Colors.grey, size: 40)),
-              ),
-            ),
-          ),
           Padding(
             padding: const EdgeInsets.all(12),
             child: Column(
@@ -229,7 +214,7 @@ class _AddEditServiceBottomSheetState extends ConsumerState<_AddEditServiceBotto
       final authState = ref.read(authProvider);
       if (authState is! AuthAuthenticated) return;
       
-      final clinicId = authState.profile?.id;
+      final clinicId = authState.profile?.clinicId;
 
       final data = {
         'name': _nameController.text,

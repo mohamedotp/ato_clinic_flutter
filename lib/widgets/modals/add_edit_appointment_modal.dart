@@ -5,18 +5,21 @@ import '../../models/appointment.dart';
 import '../../providers/appointments_provider.dart';
 import '../../providers/patients_provider.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/services_provider.dart';
 import '../../services/appointment_service.dart';
+import '../../models/medical_service.dart';
 
 class AddEditAppointmentModal extends ConsumerStatefulWidget {
   final Appointment? appointment;
-  const AddEditAppointmentModal({super.key, this.appointment});
+  final DateTime? initialDate;
+  const AddEditAppointmentModal({super.key, this.appointment, this.initialDate});
 
-  static void show(BuildContext context, {Appointment? appointment}) {
+  static void show(BuildContext context, {Appointment? appointment, DateTime? initialDate}) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => AddEditAppointmentModal(appointment: appointment),
+      builder: (context) => AddEditAppointmentModal(appointment: appointment, initialDate: initialDate),
     );
   }
 
@@ -27,27 +30,41 @@ class AddEditAppointmentModal extends ConsumerStatefulWidget {
 class _AddEditAppointmentModalState extends ConsumerState<AddEditAppointmentModal> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _notesController;
-  late TextEditingController _timeController;
+  late TextEditingController _queueController;
+  late TextEditingController _priceController;
   DateTime _selectedDate = DateTime.now();
   String? _selectedPatientId;
   AppointmentStatus _selectedStatus = AppointmentStatus.scheduled;
+  String _selectedType = 'appointment';
+  List<String> _selectedServiceIds = [];
+  double _totalPrice = 0.0;
   bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
     _notesController = TextEditingController(text: widget.appointment?.notes);
-    _timeController = TextEditingController(text: widget.appointment?.appointmentTime);
+    _queueController = TextEditingController(text: widget.appointment?.queueNumber?.toString());
     if (widget.appointment != null) {
       _selectedDate = widget.appointment!.appointmentDate ?? DateTime.now();
       _selectedPatientId = widget.appointment!.patientId;
       _selectedStatus = widget.appointment!.status;
+      _selectedType = widget.appointment!.type;
+      _selectedServiceIds = List.from(widget.appointment!.serviceIds);
+      _totalPrice = widget.appointment!.totalPrice;
+    } else if (widget.initialDate != null) {
+      _selectedDate = widget.initialDate!;
     }
+    _priceController = TextEditingController(text: _totalPrice > 0 ? _totalPrice.toString() : '');
   }
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate() || _selectedPatientId == null) return;
     setState(() => _isLoading = true);
+    
+    _totalPrice = double.tryParse(_priceController.text) ?? 0.0;
+    final queueNumber = int.tryParse(_queueController.text);
+    
     try {
       final authState = ref.read(authProvider);
       if (authState is! AuthAuthenticated) return;
@@ -57,8 +74,11 @@ class _AddEditAppointmentModalState extends ConsumerState<AddEditAppointmentModa
         'patient_id': _selectedPatientId,
         'notes': _notesController.text,
         'appointment_date': _selectedDate.toIso8601String(),
-        'appointment_time': _timeController.text,
+        'queue_number': queueNumber,
         'status': _selectedStatus.name,
+        'type': _selectedType,
+        'service_ids': _selectedServiceIds,
+        'total_price': _totalPrice,
       };
 
       final service = ref.read(appointmentService);
@@ -78,6 +98,7 @@ class _AddEditAppointmentModalState extends ConsumerState<AddEditAppointmentModa
   @override
   Widget build(BuildContext context) {
     final patientsAsync = ref.watch(patientsProvider);
+    final servicesAsync = ref.watch(servicesProvider);
 
     return Container(
       padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom, top: 20, left: 24, right: 24),
@@ -147,46 +168,36 @@ class _AddEditAppointmentModalState extends ConsumerState<AddEditAppointmentModa
                   );
                 },
                 loading: () => const LinearProgressIndicator(),
-                error: (e, __) => Text('Error: $e'),
+                error: (e, _) => Text('Error: $e'),
               ),
               const SizedBox(height: 16),
               ListTile(
                 title: Text(DateFormat('yyyy/MM/dd').format(_selectedDate), textAlign: TextAlign.right),
                 trailing: const Icon(Icons.calendar_today),
                 onTap: () async {
-                  final picked = await showDatePicker(context: context, initialDate: _selectedDate, firstDate: DateTime.now(), lastDate: DateTime.now().add(const Duration(days: 365)));
+                  final now = DateTime.now();
+                  final initialPickerDate = _selectedDate.isBefore(now) ? _selectedDate : now;
+                  final picked = await showDatePicker(
+                    context: context, 
+                    initialDate: _selectedDate.isBefore(now) ? _selectedDate : _selectedDate, // Still use _selectedDate as initial
+                    firstDate: _selectedDate.isBefore(now) ? _selectedDate : now, 
+                    lastDate: now.add(const Duration(days: 365))
+                  );
                   if (picked != null) setState(() => _selectedDate = picked);
                 },
               ),
               const SizedBox(height: 16),
               TextFormField(
-                controller: _timeController,
+                controller: _queueController,
                 textAlign: TextAlign.right,
-                readOnly: true,
-                onTap: () async {
-                  final TimeOfDay? picked = await showTimePicker(
-                    context: context,
-                    initialTime: TimeOfDay.now(),
-                    builder: (BuildContext context, Widget? child) {
-                      return MediaQuery(
-                        data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: false),
-                        child: child!,
-                      );
-                    },
-                  );
-                  if (picked != null) {
-                    final now = DateTime.now();
-                    final dt = DateTime(now.year, now.month, now.day, picked.hour, picked.minute);
-                    setState(() {
-                      _timeController.text = DateFormat('h:mm a').format(dt);
-                    });
-                  }
-                },
+                keyboardType: TextInputType.number,
                 decoration: const InputDecoration(
-                  labelText: 'اختر الوقت',
-                  prefixIcon: Icon(Icons.access_time),
+                  labelText: 'رقم الحجز',
+                  hintText: 'مثال: 1، 2، 3...',
+                  prefixIcon: Icon(Icons.numbers),
                   border: OutlineInputBorder(),
                 ),
+                validator: (value) => value == null || value.isEmpty ? 'يرجى إدخال رقم الحجز' : null,
               ),
               const SizedBox(height: 16),
               TextFormField(
@@ -194,6 +205,83 @@ class _AddEditAppointmentModalState extends ConsumerState<AddEditAppointmentModa
                 textAlign: TextAlign.right,
                 maxLines: 2,
                 decoration: const InputDecoration(labelText: 'ملاحظات', border: OutlineInputBorder()),
+              ),
+              const SizedBox(height: 16),
+              DropdownButtonFormField<String>(
+                value: _selectedType,
+                items: const [
+                  DropdownMenuItem(value: 'appointment', child: Text('موعد عام', textAlign: TextAlign.right)),
+                  DropdownMenuItem(value: 'examination', child: Text('كشف عادي', textAlign: TextAlign.right)),
+                  DropdownMenuItem(value: 'consultation', child: Text('استشارة', textAlign: TextAlign.right)),
+                  DropdownMenuItem(value: 'session', child: Text('جلسة', textAlign: TextAlign.right)),
+                ],
+                onChanged: (val) => setState(() => _selectedType = val!),
+                decoration: const InputDecoration(labelText: 'نوع الموعد', border: OutlineInputBorder()),
+              ),
+              const SizedBox(height: 16),
+              servicesAsync.when(
+                data: (services) {
+                  if (services.isEmpty) return const SizedBox.shrink();
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      const Padding(
+                        padding: EdgeInsets.only(bottom: 8.0),
+                        child: Text('الخدمات المرتبطة', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                      ),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.grey[50],
+                          border: Border.all(color: Colors.grey[300]!),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          alignment: WrapAlignment.end,
+                          children: services.map((s) {
+                            final isSelected = _selectedServiceIds.contains(s.id);
+                            return FilterChip(
+                              label: Text('${s.name} (${s.price})', textAlign: TextAlign.right, style: TextStyle(fontSize: 12, color: isSelected ? Colors.white : Colors.black87)),
+                              selected: isSelected,
+                              onSelected: (selected) {
+                                setState(() {
+                                  if (selected) {
+                                    _selectedServiceIds.add(s.id);
+                                    _totalPrice += s.price;
+                                  } else {
+                                    _selectedServiceIds.remove(s.id);
+                                    _totalPrice -= s.price;
+                                  }
+                                  _priceController.text = _totalPrice.toString();
+                                });
+                              },
+                              selectedColor: const Color(0xFF0D9488),
+                              checkmarkColor: Colors.white,
+                              backgroundColor: Colors.white,
+                            );
+                          }).toList(),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _priceController,
+                        textAlign: TextAlign.right,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          labelText: 'السعر الإجمالي (يمكن تعديله)', 
+                          border: OutlineInputBorder(),
+                          prefixIcon: Icon(Icons.attach_money),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+                  );
+                },
+                loading: () => const LinearProgressIndicator(),
+                error: (e, _) => Text('Error loading services: $e'),
               ),
               const SizedBox(height: 16),
               DropdownButtonFormField<AppointmentStatus>(

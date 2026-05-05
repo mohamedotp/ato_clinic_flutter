@@ -8,6 +8,8 @@ import '../../providers/visits_provider.dart';
 import '../../models/appointment.dart';
 import '../../models/profile.dart';
 import '../../widgets/modals/add_edit_appointment_modal.dart';
+import '../handoff/handoff_screen.dart';
+import '../handoff/conversations_screen.dart';
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
@@ -83,6 +85,37 @@ class DashboardScreen extends ConsumerWidget {
                       ],
                     ),
                     const Spacer(),
+                    if (profile?.role == UserRole.super_admin) ...[
+                      InkWell(
+                        onTap: () {
+                          ref.read(authProvider.notifier).exitClinicContext();
+                          context.go('/super-admin');
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: Colors.red.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.red.withOpacity(0.3)),
+                          ),
+                          child: const Row(
+                            children: [
+                              Icon(Icons.admin_panel_settings, color: Colors.red, size: 18),
+                              SizedBox(width: 4),
+                              Text(
+                                'خروج للإدارة',
+                                style: TextStyle(
+                                  color: Colors.red,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                    ],
                     const Text(
                       'عياداتي',
                       style: TextStyle(
@@ -164,7 +197,62 @@ class DashboardScreen extends ConsumerWidget {
                 ),
               ),
 
-              // 4. Mini Stats Summary
+              // Handoff Banner (for receptionist or admin - when there are pending handoffs)
+              Consumer(builder: (ctx, ref2, _) {
+                final handoffs = ref2.watch(handoffProvider);
+                final pending = handoffs.valueOrNull
+                        ?.where((h) => h.status == 'pending')
+                        .length ??
+                    0;
+                if (pending == 0) return const SizedBox.shrink();
+                return GestureDetector(
+                  onTap: () => context.push('/handoff'),
+                  child: Container(
+                    margin: const EdgeInsets.symmetric(
+                        horizontal: 20, vertical: 8),
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          Colors.orange.shade700,
+                          Colors.orange.shade500
+                        ],
+                        begin: Alignment.centerRight,
+                        end: Alignment.centerLeft,
+                      ),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.support_agent,
+                            color: Colors.white, size: 28),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '$pending طلب تحويل ينتظر',
+                                style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 15),
+                              ),
+                              const Text(
+                                'اضغط لإدارة طلبات التحويل',
+                                style: TextStyle(
+                                    color: Colors.white70, fontSize: 12),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const Icon(Icons.arrow_back_ios,
+                            color: Colors.white, size: 18),
+                      ],
+                    ),
+                  ),
+                );
+              }),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 25),
                 child: Row(
@@ -172,7 +260,7 @@ class DashboardScreen extends ConsumerWidget {
                     Expanded(
                       child: _SummaryCard(
                         title: 'إجمالي المرضى',
-                        value: patientsAsync.when(data: (p) => p.length.toString(), loading: () => '...', error: (_, __) => '0'),
+                        value: patientsAsync.when(data: (p) => p.length.toString(), loading: () => '...', error: (_, _) => '0'),
                         icon: Icons.people_alt_outlined,
                         color: const Color(0xFFE3F2FD),
                         iconColor: Colors.blue,
@@ -281,19 +369,27 @@ class DashboardScreen extends ConsumerWidget {
         onTap: (index) {
           if (index == 1) context.push('/patients');
           if (index == 2) context.push('/appointments');
-          if (index == 3 && !isReceptionist) context.push('/visits'); 
-          if (index == 3 && isReceptionist) context.push('/settings');
-          if (index == 4) context.push('/settings');
+          if (index == 3) {
+            // WhatsApp Conversations for all roles
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const ConversationsScreen()),
+            );
+          }
+          if (index == 4 && !isReceptionist) context.push('/visits');
+          if (index == 5) context.push('/settings');
         },
         items: [
           const BottomNavigationBarItem(icon: Icon(Icons.grid_view_rounded), label: 'الرئيسية'),
           const BottomNavigationBarItem(icon: Icon(Icons.people_outline), label: 'المرضى'),
           const BottomNavigationBarItem(icon: Icon(Icons.calendar_month_outlined), label: 'المواعيد'),
-          if (!isReceptionist) ...[
+          const BottomNavigationBarItem(
+            icon: Icon(Icons.chat_bubble_outline),
+            label: 'المحادثات',
+          ),
+          if (!isReceptionist)
             const BottomNavigationBarItem(icon: Icon(Icons.history_edu_outlined), label: 'الزيارات'),
-            const BottomNavigationBarItem(icon: Icon(Icons.settings_outlined), label: 'الإعدادات'),
-          ] else
-            const BottomNavigationBarItem(icon: Icon(Icons.settings_outlined), label: 'الإعدادات'),
+          const BottomNavigationBarItem(icon: Icon(Icons.settings_outlined), label: 'الإعدادات'),
         ],
       ),
     );
@@ -339,7 +435,7 @@ class _RevenueCard extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.all(24),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
                   'إجمالي الإيرادات اليوم',
@@ -347,13 +443,8 @@ class _RevenueCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
+                  mainAxisAlignment: MainAxisAlignment.start,
                   children: [
-                    const Text(
-                      'EGP',
-                      style: TextStyle(color: Colors.white, fontSize: 16),
-                    ),
-                    const SizedBox(width: 8),
                     Text(
                       revenue.toStringAsFixed(0),
                       style: const TextStyle(
@@ -361,6 +452,11 @@ class _RevenueCard extends StatelessWidget {
                         fontSize: 32,
                         fontWeight: FontWeight.bold,
                       ),
+                    ),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'ج.م',
+                      style: TextStyle(color: Colors.white, fontSize: 16),
                     ),
                   ],
                 ),
@@ -483,7 +579,7 @@ class _SummaryCard extends StatelessWidget {
           ),
           const Spacer(),
           Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 value,
@@ -526,6 +622,11 @@ class _AppointmentListCard extends StatelessWidget {
         children: [
           Row(
             children: [
+              const CircleAvatar(
+                radius: 20,
+                backgroundImage: AssetImage('assets/images/placeholder_doctor.png'), 
+              ),
+              const Spacer(),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
@@ -533,38 +634,30 @@ class _AppointmentListCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(
-                  appointment.appointmentTime ?? 'غير محدد',
+                  appointment.queueNumber != null ? 'رقم ${appointment.queueNumber}' : 'غير محدد',
                   style: const TextStyle(color: Color(0xFF006D63), fontSize: 12, fontWeight: FontWeight.bold),
                 ),
-              ),
-              const Spacer(),
-              const CircleAvatar(
-                radius: 20,
-                backgroundImage: AssetImage('assets/images/placeholder_doctor.png'), 
               ),
             ],
           ),
           const SizedBox(height: 12),
           Flexible(
-            child: Align(
-              alignment: Alignment.centerRight,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    appointment.patient?.fullName ?? 'بدون اسم',
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  Text(
-                    appointment.notes?.isNotEmpty == true ? appointment.notes! : 'مراجعة',
-                    style: const TextStyle(color: Colors.grey, fontSize: 13),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  appointment.patient?.fullName ?? 'بدون اسم',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                Text(
+                  appointment.notes?.isNotEmpty == true ? appointment.notes! : 'مراجعة',
+                  style: const TextStyle(color: Colors.grey, fontSize: 13),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
             ),
           ),
           const SizedBox(height: 12),

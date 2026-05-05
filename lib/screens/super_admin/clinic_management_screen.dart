@@ -75,7 +75,7 @@ class ClinicManagementScreen extends ConsumerWidget {
                 const Divider(),
                 _infoRow('المعرف', clinic.id.substring(0, 8).toUpperCase()),
                 _infoRow('الخطة', clinic.plan == 'pro' ? 'Pro (سنوي)' : 'Starter (شهري)'),
-                _infoRow('حالة النظام', clinic.isActive ? 'نشط' : 'متوقف', color: clinic.isActive ? Colors.green : Colors.red),
+                _buildStatusRow(clinic),
                 if (clinic.subscriptionEndsAt != null)
                   _infoRow('تاريخ الانتهاء', _formatDate(clinic.subscriptionEndsAt!)),
               ],
@@ -83,6 +83,26 @@ class ClinicManagementScreen extends ConsumerWidget {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildStatusRow(Clinic clinic) {
+    final bool isExpired = clinic.subscriptionEndsAt != null && 
+                          clinic.subscriptionEndsAt!.isBefore(DateTime.now());
+
+    return Column(
+      children: [
+        _infoRow(
+          'حالة النظام', 
+          clinic.isActive ? 'نشط (مفعل)' : 'متوقف (معطل)', 
+          color: clinic.isActive ? Colors.green : Colors.red
+        ),
+        _infoRow(
+          'حالة الاشتراك', 
+          isExpired ? 'منتهي' : 'ساري', 
+          color: isExpired ? Colors.orange[900]! : Colors.blue
+        ),
+      ],
     );
   }
 
@@ -208,7 +228,7 @@ class _ClinicFormModalState extends ConsumerState<_ClinicFormModal> {
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String>(
-                  value: _plan,
+                  initialValue: _plan,
                   decoration: InputDecoration(
                     labelText: 'باقة الاشتراك',
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
@@ -232,11 +252,16 @@ class _ClinicFormModalState extends ConsumerState<_ClinicFormModal> {
                   tileColor: Colors.grey[50],
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide(color: Colors.grey[300]!)),
                   onTap: () async {
+                    // Fix: initialDate must be between firstDate and lastDate.
+                    // If the current subscription is already in the past, we should allow viewing/editing it.
+                    final now = DateTime.now();
+                    final firstAllowed = _endDate != null && _endDate!.isBefore(now) ? _endDate! : now;
+                    
                     final date = await showDatePicker(
                       context: context,
-                      initialDate: _endDate ?? DateTime.now().add(const Duration(days: 30)),
-                      firstDate: DateTime.now(),
-                      lastDate: DateTime(2030),
+                      initialDate: _endDate ?? now.add(const Duration(days: 30)),
+                      firstDate: DateTime(2020), // Allow selecting older dates if needed
+                      lastDate: DateTime(2035),
                     );
                     if (date != null) setState(() => _endDate = date);
                   },

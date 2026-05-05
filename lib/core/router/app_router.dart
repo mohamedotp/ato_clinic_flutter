@@ -13,15 +13,25 @@ import 'package:ato_clinic_flutter/screens/workspace/workspace_screen.dart';
 import 'package:ato_clinic_flutter/screens/settings/settings_screen.dart';
 import 'package:ato_clinic_flutter/screens/settings/users_list_screen.dart';
 import 'package:ato_clinic_flutter/screens/clinic/ai_dashboard_screen.dart';
+import 'package:ato_clinic_flutter/screens/handoff/handoff_screen.dart';
 import 'package:ato_clinic_flutter/models/profile.dart';
+// Super Admin screens
 import 'package:ato_clinic_flutter/screens/super_admin/super_admin_dashboard_screen.dart';
 import 'package:ato_clinic_flutter/screens/super_admin/clinic_management_screen.dart';
+import 'package:ato_clinic_flutter/screens/super_admin/global_settings_screen.dart';
+import 'package:ato_clinic_flutter/screens/super_admin/subscriptions_screen.dart';
+import 'package:ato_clinic_flutter/screens/super_admin/reports_screen.dart';
+import 'package:ato_clinic_flutter/screens/super_admin/store_management_screen.dart';
+import 'package:ato_clinic_flutter/screens/super_admin/service_activation_screen.dart';
+import 'package:ato_clinic_flutter/screens/super_admin/support_tickets_screen.dart';
+import 'package:ato_clinic_flutter/screens/super_admin/system_admins_screen.dart';
+import 'package:ato_clinic_flutter/screens/super_admin/clinic_selector_screen.dart';
 
-/// A listenable that triggers GoRouter to re-evaluate the redirect logic 
+/// A listenable that triggers GoRouter to re-evaluate the redirect logic
 /// whenever the auth state changes, without recreating the entire GoRouter instance.
 class RouterRefreshListenable extends ChangeNotifier {
   RouterRefreshListenable(Ref ref) {
-    _subscription = ref.listen(authProvider, (_, __) => notifyListeners());
+    _subscription = ref.listen(authProvider, (_, _) => notifyListeners());
   }
 
   late final ProviderSubscription _subscription;
@@ -34,15 +44,12 @@ class RouterRefreshListenable extends ChangeNotifier {
 }
 
 final routerProvider = Provider<GoRouter>((ref) {
-  // Use ChangeNotifier to notify GoRouter about auth changes
   final refreshListenable = RouterRefreshListenable(ref);
 
   return GoRouter(
     initialLocation: '/',
     refreshListenable: refreshListenable,
     redirect: (context, state) {
-      // Use ref.read here because GoRouter will re-call this 
-      // when refreshListenable notifies it.
       final authState = ref.read(authProvider);
       final bool isAuthenticated = authState is AuthAuthenticated;
       final bool isLoggingIn = state.matchedLocation == '/login';
@@ -52,36 +59,40 @@ final routerProvider = Provider<GoRouter>((ref) {
       }
 
       if (isLoggingIn) {
-        final profile = (authState as AuthAuthenticated).profile;
+        final profile = (authState).profile;
         return profile?.role == UserRole.super_admin ? '/super-admin' : '/';
       }
 
-      final profile = (authState as AuthAuthenticated).profile;
+      final profile = (authState).profile;
       final role = profile?.role;
       final isSuperAdmin = role == UserRole.super_admin;
       final isReceptionist = role == UserRole.receptionist;
 
+      // Guard super-admin routes
       if (state.matchedLocation.startsWith('/super-admin') && !isSuperAdmin) {
         return '/';
       }
 
-      if (isReceptionist && 
-         (state.matchedLocation.startsWith('/visits') || 
-          state.matchedLocation.startsWith('/workspace') ||
-          state.matchedLocation.startsWith('/settings') ||
-          state.matchedLocation.startsWith('/ai'))) {
+      // Guard receptionist from sensitive pages
+      if (isReceptionist &&
+          (state.matchedLocation.startsWith('/visits') ||
+              state.matchedLocation.startsWith('/workspace') ||
+              state.matchedLocation.startsWith('/settings/users') ||
+              state.matchedLocation.startsWith('/ai'))) {
         return '/';
       }
 
+      // Doctor can't access user management
       if (role == UserRole.doctor && state.matchedLocation.startsWith('/settings')) {
-          if (state.matchedLocation.startsWith('/settings/users')) {
-            return '/settings';
-          }
+        if (state.matchedLocation.startsWith('/settings/users')) {
+          return '/settings';
+        }
       }
 
       return null;
     },
     routes: [
+      // ── Clinic routes ──────────────────────────────────────
       GoRoute(
         path: '/',
         builder: (context, state) => const DashboardScreen(),
@@ -128,12 +139,50 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const AiDashboardScreen(),
       ),
       GoRoute(
+        path: '/handoff',
+        builder: (context, state) => const HandoffScreen(),
+      ),
+
+      // ── Super Admin routes ─────────────────────────────────
+      GoRoute(
         path: '/super-admin',
         builder: (context, state) => const SuperAdminDashboardScreen(),
       ),
       GoRoute(
         path: '/super-admin/clinics',
         builder: (context, state) => const ClinicManagementScreen(),
+      ),
+      GoRoute(
+        path: '/super-admin/subscriptions',
+        builder: (context, state) => const SubscriptionsScreen(),
+      ),
+      GoRoute(
+        path: '/super-admin/reports',
+        builder: (context, state) => const ReportsScreen(),
+      ),
+      GoRoute(
+        path: '/super-admin/stores',
+        builder: (context, state) => const StoreManagementScreen(),
+      ),
+      GoRoute(
+        path: '/super-admin/services',
+        builder: (context, state) => const ServiceActivationScreen(),
+      ),
+      GoRoute(
+        path: '/super-admin/support',
+        builder: (context, state) => const SupportTicketsScreen(),
+      ),
+      GoRoute(
+        path: '/super-admin/admins',
+        builder: (context, state) => const SystemAdminsScreen(),
+      ),
+      GoRoute(
+        path: '/super-admin/settings',
+        builder: (context, state) => const GlobalSettingsScreen(),
+      ),
+      GoRoute(
+        path: '/super-admin/select-clinic',
+        builder: (context, state) => const ClinicSelectorScreen(),
       ),
     ],
   );
