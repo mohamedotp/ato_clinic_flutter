@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../providers/clinic_provider.dart';
+import 'internal_chat_tab.dart';
 
 // ── Model ─────────────────────────────────────────────────────────────────────
 
@@ -175,102 +176,113 @@ class ConversationsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     const primary = Color(0xFF006D63);
-    final convAsync = ref.watch(conversationsProvider);
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFF5F7F6),
-      appBar: AppBar(
-        title: const Text(
-          'محادثات الواتساب',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-        ),
-        centerTitle: true,
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
-        elevation: 0,
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(1),
-          child: Container(color: Colors.grey.shade200, height: 1),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh_rounded),
-            onPressed: () => ref.invalidate(conversationsProvider),
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF5F7F6),
+        appBar: AppBar(
+          title: const Text(
+            'المحادثات',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
           ),
-        ],
-      ),
-      body: convAsync.when(
-        data: (convs) {
-          if (convs.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(28),
-                    decoration: const BoxDecoration(
-                      color: Color(0xFFE8F5E9),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(Icons.chat_bubble_outline_rounded,
-                        size: 60, color: primary),
-                  ),
-                  const SizedBox(height: 20),
-                  const Text('لا توجد محادثات بعد',
-                      style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black87)),
-                  const SizedBox(height: 8),
-                  const Text('سيظهر هنا كل من تواصل عبر الواتساب',
-                      style: TextStyle(color: Colors.grey, fontSize: 13)),
-                ],
-              ),
-            );
-          }
-
-          return RefreshIndicator(
-            color: primary,
-            onRefresh: () async => ref.invalidate(conversationsProvider),
-            child: ListView.separated(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              itemCount: convs.length,
-              separatorBuilder: (_, __) =>
-                  Divider(height: 1, color: Colors.grey.shade200, indent: 80),
-              itemBuilder: (ctx, i) {
-                final c = convs[i];
-                return _ConvTile(
-                  conv: c,
-                  timeAgo: _timeAgo(c.lastMessageAt),
-                  onTap: () => Navigator.push(
-                    ctx,
-                    MaterialPageRoute(
-                      builder: (_) => ChatDetailScreen(conversation: c),
-                    ),
-                  ).then((_) => ref.invalidate(conversationsProvider)),
-                );
-              },
-            ),
-          );
-        },
-        loading: () => const Center(
-            child: CircularProgressIndicator(color: Color(0xFF006D63))),
-        error: (e, _) => Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.error_outline, size: 48, color: Colors.red),
-              const SizedBox(height: 12),
-              Text('خطأ في تحميل المحادثات\n$e',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(color: Colors.grey)),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: () => ref.invalidate(conversationsProvider),
-                child: const Text('إعادة المحاولة'),
-              ),
+          centerTitle: true,
+          backgroundColor: Colors.white,
+          foregroundColor: Colors.black,
+          elevation: 0,
+          bottom: const TabBar(
+            labelColor: primary,
+            unselectedLabelColor: Colors.grey,
+            indicatorColor: primary,
+            tabs: [
+              Tab(text: 'واتساب', icon: Icon(Icons.wechat)),
+              Tab(text: 'شات العيادة', icon: Icon(Icons.forum_outlined)),
             ],
           ),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.refresh_rounded),
+              onPressed: () => ref.invalidate(conversationsProvider),
+            ),
+          ],
+        ),
+        body: TabBarView(
+          children: [
+            // WhatsApp Conversations Tab
+            _buildWhatsAppTab(ref),
+            // Internal Chat Tab
+            const InternalChatTab(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildWhatsAppTab(WidgetRef ref) {
+    const primary = Color(0xFF006D63);
+    final convAsync = ref.watch(conversationsProvider);
+
+    return convAsync.when(
+      data: (convs) {
+        if (convs.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(28),
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFE8F5E9),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.chat_bubble_outline_rounded, size: 60, color: primary),
+                ),
+                const SizedBox(height: 20),
+                const Text('لا توجد محادثات بعد', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87)),
+                const SizedBox(height: 8),
+                const Text('سيظهر هنا كل من تواصل عبر الواتساب', style: TextStyle(color: Colors.grey, fontSize: 13)),
+              ],
+            ),
+          );
+        }
+
+        return RefreshIndicator(
+          color: primary,
+          onRefresh: () async => ref.invalidate(conversationsProvider),
+          child: ListView.separated(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            itemCount: convs.length,
+            separatorBuilder: (_, __) => Divider(height: 1, color: Colors.grey.shade200, indent: 80),
+            itemBuilder: (ctx, i) {
+              final c = convs[i];
+              return _ConvTile(
+                conv: c,
+                timeAgo: _timeAgo(c.lastMessageAt),
+                onTap: () => Navigator.push(
+                  ctx,
+                  MaterialPageRoute(
+                    builder: (_) => ChatDetailScreen(conversation: c),
+                  ),
+                ).then((_) => ref.invalidate(conversationsProvider)),
+              );
+            },
+          ),
+        );
+      },
+      loading: () => const Center(child: CircularProgressIndicator(color: Color(0xFF006D63))),
+      error: (e, _) => Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.error_outline, size: 48, color: Colors.red),
+            const SizedBox(height: 12),
+            Text('خطأ في تحميل المحادثات\n$e', textAlign: TextAlign.center, style: const TextStyle(color: Colors.grey)),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: () => ref.invalidate(conversationsProvider),
+              child: const Text('إعادة المحاولة'),
+            ),
+          ],
         ),
       ),
     );

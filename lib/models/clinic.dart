@@ -11,6 +11,9 @@ class Clinic {
   final DateTime? subscriptionEndsAt;
   final String whatsappNumber;
   final String evolutionInstance;
+  final String? address;
+  final double? latitude;
+  final double? longitude;
 
   Clinic({
     required this.id,
@@ -25,6 +28,9 @@ class Clinic {
     this.subscriptionEndsAt,
     this.whatsappNumber = '',
     this.evolutionInstance = '',
+    this.address,
+    this.latitude,
+    this.longitude,
   });
 
   factory Clinic.fromJson(Map<String, dynamic> json) {
@@ -43,6 +49,9 @@ class Clinic {
           : null,
       whatsappNumber: json['whatsapp_number'] ?? '',
       evolutionInstance: json['evolution_instance'] ?? '',
+      address: json['address'],
+      latitude: json['latitude'] != null ? (json['latitude'] as num).toDouble() : null,
+      longitude: json['longitude'] != null ? (json['longitude'] as num).toDouble() : null,
     );
   }
 
@@ -61,6 +70,9 @@ class Clinic {
         'subscription_ends_at': subscriptionEndsAt!.toIso8601String(),
       'whatsapp_number': whatsappNumber,
       'evolution_instance': evolutionInstance,
+      if (address != null) 'address': address,
+      if (latitude != null) 'latitude': latitude,
+      if (longitude != null) 'longitude': longitude,
     };
   }
 
@@ -76,6 +88,9 @@ class Clinic {
     DateTime? subscriptionEndsAt,
     String? whatsappNumber,
     String? evolutionInstance,
+    String? address,
+    double? latitude,
+    double? longitude,
   }) {
     return Clinic(
       id: id,
@@ -90,6 +105,9 @@ class Clinic {
       subscriptionEndsAt: subscriptionEndsAt ?? this.subscriptionEndsAt,
       whatsappNumber: whatsappNumber ?? this.whatsappNumber,
       evolutionInstance: evolutionInstance ?? this.evolutionInstance,
+      address: address ?? this.address,
+      latitude: latitude ?? this.latitude,
+      longitude: longitude ?? this.longitude,
     );
   }
 }

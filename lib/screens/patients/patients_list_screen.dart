@@ -2,8 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../models/patient.dart';
+import '../../models/profile.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/patients_provider.dart';
+import '../../providers/audit_provider.dart';
+import '../../services/insurance_service.dart';
+import '../../models/insurance_company.dart';
+import 'patient_finance_tab.dart';
+
+final _insuranceSvcProvider = Provider((ref) => InsuranceService());
+final _insCompaniesProvider = FutureProvider.family<List<InsuranceCompany>, String>((ref, clinicId) {
+  return ref.read(_insuranceSvcProvider).getCompanies(clinicId);
+});
 
 class PatientsListScreen extends ConsumerStatefulWidget {
   const PatientsListScreen({super.key});
@@ -50,7 +60,29 @@ class _PatientsListScreenState extends ConsumerState<PatientsListScreen> {
     );
 
     if (confirmed == true) {
+      final authState = ref.read(authProvider);
+      final clinicId = authState is AuthAuthenticated ? authState.profile?.clinicId : null;
+      final userName = authState is AuthAuthenticated ? authState.profile?.fullName : '';
+      
+      final patients = ref.read(searchedPatientsProvider).valueOrNull ?? [];
+      final patient = patients.where((p) => p.id == id).firstOrNull;
+      final patientName = patient?.fullName ?? id;
+      final patientJson = patient?.toJson();
+
       await ref.read(patientService).deletePatient(id);
+
+      if (clinicId != null) {
+        await ref.read(auditServiceProvider).logEvent(
+          clinicId: clinicId,
+          userId: authState is AuthAuthenticated ? authState.profile?.id ?? '' : '',
+          action: 'delete_patient',
+          tableName: 'patients',
+          recordId: id,
+          description: 'تم حذف المريض $patientName بواسطة $userName',
+          oldValues: patientJson,
+        );
+      }
+
       ref.invalidate(patientsProvider);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -73,6 +105,10 @@ class _PatientsListScreenState extends ConsumerState<PatientsListScreen> {
         backgroundColor: Colors.white,
         elevation: 0,
         foregroundColor: Colors.black,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new, size: 20),
+          onPressed: () => context.pop(),
+        ),
         actions: [
           IconButton(
             icon: Icon(_viewMode == ViewMode.list ? Icons.grid_view_rounded : Icons.list_rounded),
@@ -93,7 +129,7 @@ class _PatientsListScreenState extends ConsumerState<PatientsListScreen> {
                 borderRadius: BorderRadius.circular(20),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.03),
+                    color: Colors.black.withValues(alpha: 0.03),
                     blurRadius: 15,
                     offset: const Offset(0, 5),
                   ),
@@ -183,25 +219,68 @@ class _PatientCard extends ConsumerWidget {
     required this.onDelete,
   });
 
+  static void _showFinanceSheet(BuildContext context, String patientId) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => DraggableScrollableSheet(
+        initialChildSize: 0.75,
+        minChildSize: 0.5,
+        maxChildSize: 0.95,
+        builder: (_, ctrl) => Container(
+          decoration: const BoxDecoration(
+            color: Color(0xFFF8FAF9),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+          ),
+          child: Column(
+            children: [
+              const SizedBox(height: 12),
+              Container(
+                width: 40, height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'الحسابات المالية',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+              ),
+              const SizedBox(height: 8),
+              Expanded(
+                child: PatientFinanceTab(patientId: patientId),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final authState = ref.watch(authProvider);
+    final isReceptionist = authState is AuthAuthenticated && authState.profile?.role == UserRole.receptionist;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.black.withOpacity(0.02)),
+        border: Border.all(color: Colors.black.withValues(alpha: 0.02)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.02),
+            color: Colors.black.withValues(alpha: 0.02),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
         ],
       ),
       child: InkWell(
-        onTap: () => context.push('/workspace/${patient.id}'),
+        onTap: isReceptionist ? null : () => context.push('/workspace/${patient.id}'),
         borderRadius: BorderRadius.circular(24),
         child: Row(
           children: [
@@ -211,12 +290,12 @@ class _PatientCard extends ConsumerWidget {
               height: 56,
               decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [const Color(0xFF006D63).withOpacity(0.1), const Color(0xFF006D63).withOpacity(0.2)],
+                  colors: [const Color(0xFF006D63).withValues(alpha: 0.1), const Color(0xFF006D63).withValues(alpha: 0.2)],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
                 borderRadius: BorderRadius.circular(18),
-                border: Border.all(color: const Color(0xFF006D63).withOpacity(0.1)),
+                border: Border.all(color: const Color(0xFF006D63).withValues(alpha: 0.1)),
               ),
               child: Center(
                 child: Text(
@@ -265,9 +344,9 @@ class _PatientCard extends ConsumerWidget {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                           decoration: BoxDecoration(
-                            color: Colors.green.withOpacity(0.1),
+                            color: Colors.green.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.green.withOpacity(0.2)),
+                            border: Border.all(color: Colors.green.withValues(alpha: 0.2)),
                           ),
                           child: const Text(
                             'مريض جديد من واتساب',
@@ -278,7 +357,7 @@ class _PatientCard extends ConsumerWidget {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                           decoration: BoxDecoration(
-                            color: Colors.blueGrey.withOpacity(0.1),
+                            color: Colors.blueGrey.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
@@ -296,22 +375,42 @@ class _PatientCard extends ConsumerWidget {
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
+                // زر الحسابات
+                if (!isReceptionist)
+                  IconButton(
+                    onPressed: () => _showFinanceSheet(context, patient.id),
+                    icon: const Icon(Icons.account_balance_wallet_rounded,
+                        color: Color(0xFF006D63), size: 20),
+                    style: IconButton.styleFrom(
+                      backgroundColor: const Color(0xFF006D63).withValues(alpha: 0.06),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                      minimumSize: const Size(40, 40),
+                    ),
+                    tooltip: 'الحسابات المالية',
+                  ),
+                if (!isReceptionist) const SizedBox(width: 4),
                 IconButton(
                   onPressed: onEdit,
-                  icon: const Icon(Icons.edit_outlined, color: Color(0xFF10B981), size: 20),
+                  icon: const Icon(Icons.edit_outlined,
+                      color: Color(0xFF10B981), size: 20),
                   style: IconButton.styleFrom(
-                    backgroundColor: const Color(0xFF10B981).withOpacity(0.05),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    backgroundColor:
+                        const Color(0xFF10B981).withValues(alpha: 0.05),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
                     minimumSize: const Size(40, 40),
                   ),
                 ),
                 const SizedBox(width: 4),
                 IconButton(
                   onPressed: onDelete,
-                  icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 20),
+                  icon: const Icon(Icons.delete_outline,
+                      color: Colors.redAccent, size: 20),
                   style: IconButton.styleFrom(
-                    backgroundColor: Colors.red.withOpacity(0.05),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    backgroundColor: Colors.red.withValues(alpha: 0.05),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
                     minimumSize: const Size(40, 40),
                   ),
                 ),
@@ -324,7 +423,7 @@ class _PatientCard extends ConsumerWidget {
   }
 }
 
-class _PatientGridItem extends StatelessWidget {
+class _PatientGridItem extends ConsumerWidget {
   final Patient patient;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
@@ -336,21 +435,24 @@ class _PatientGridItem extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final authState = ref.watch(authProvider);
+    final isReceptionist = authState is AuthAuthenticated && authState.profile?.role == UserRole.receptionist;
+
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.03),
+            color: Colors.black.withValues(alpha: 0.03),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
         ],
       ),
       child: InkWell(
-        onTap: () => context.push('/workspace/${patient.id}'),
+        onTap: isReceptionist ? null : () => context.push('/workspace/${patient.id}'),
         borderRadius: BorderRadius.circular(24),
         child: Padding(
           padding: const EdgeInsets.all(12.0),
@@ -362,12 +464,12 @@ class _PatientGridItem extends StatelessWidget {
                 width: 60,
                 height: 60,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF006D63).withOpacity(0.1),
+                  color: const Color(0xFF006D63).withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                 ),
                 child: Center(
                   child: Text(
-                    patient.fullName[0],
+                    patient.fullName.isNotEmpty ? patient.fullName[0] : '?',
                     style: const TextStyle(
                       color: Color(0xFF006D63),
                       fontWeight: FontWeight.bold,
@@ -399,7 +501,7 @@ class _PatientGridItem extends StatelessWidget {
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
                     style: IconButton.styleFrom(
-                      backgroundColor: Colors.red.withOpacity(0.05),
+                      backgroundColor: Colors.red.withValues(alpha: 0.05),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                       minimumSize: const Size(32, 32),
                     ),
@@ -411,7 +513,7 @@ class _PatientGridItem extends StatelessWidget {
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
                     style: IconButton.styleFrom(
-                      backgroundColor: const Color(0xFF10B981).withOpacity(0.05),
+                      backgroundColor: const Color(0xFF10B981).withValues(alpha: 0.05),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                       minimumSize: const Size(32, 32),
                     ),
@@ -440,6 +542,8 @@ class _AddEditPatientBottomSheetState extends ConsumerState<_AddEditPatientBotto
   late TextEditingController _nameController;
   late TextEditingController _phoneController;
   late TextEditingController _codeController;
+  late TextEditingController _insuranceNumberController;
+  String? _selectedInsuranceId;
   bool _isLoading = false;
 
   @override
@@ -448,6 +552,8 @@ class _AddEditPatientBottomSheetState extends ConsumerState<_AddEditPatientBotto
     _nameController = TextEditingController(text: widget.patient?.fullName);
     _phoneController = TextEditingController(text: widget.patient?.phone);
     _codeController = TextEditingController(text: widget.patient?.patientCode);
+    _insuranceNumberController = TextEditingController(text: widget.patient?.insuranceNumber);
+    _selectedInsuranceId = widget.patient?.insuranceCompanyId;
   }
 
   Future<void> _submit() async {
@@ -467,14 +573,34 @@ class _AddEditPatientBottomSheetState extends ConsumerState<_AddEditPatientBotto
         'full_name': _nameController.text,
         'phone': _phoneController.text,
         'patient_code': _codeController.text,
+        'insurance_company_id': _selectedInsuranceId,
+        'insurance_number': _insuranceNumberController.text.isNotEmpty ? _insuranceNumberController.text : null,
         'clinic_id': cId,
         'status': 'active',
       };
 
       if (widget.patient != null) {
         await ref.read(patientService).updatePatient(widget.patient!.id, data);
+        await ref.read(auditServiceProvider).logEvent(
+          clinicId: cId,
+          userId: authState.profile?.id ?? '',
+          action: 'update_patient',
+          tableName: 'patients',
+          recordId: widget.patient!.id,
+          description: 'تم تعديل بيانات المريض ${widget.patient!.fullName} بواسطة ${authState.profile?.fullName}',
+          oldValues: widget.patient!.toJson(),
+          newValues: data,
+        );
       } else {
         await ref.read(patientService).addPatient(data);
+        await ref.read(auditServiceProvider).logEvent(
+          clinicId: cId,
+          userId: authState.profile?.id ?? '',
+          action: 'create_patient',
+          tableName: 'patients',
+          description: 'تم تسجيل مريض جديد باسم ${_nameController.text} بواسطة ${authState.profile?.fullName}',
+          newValues: data,
+        );
       }
 
       ref.invalidate(patientsProvider);
@@ -526,7 +652,14 @@ class _AddEditPatientBottomSheetState extends ConsumerState<_AddEditPatientBotto
               _buildField('رقم الهاتف', _phoneController, Icons.phone_outlined, TextInputType.phone),
               const SizedBox(height: 20),
               _buildField('كود المريض (اختياري)', _codeController, Icons.tag),
-              const SizedBox(height: 40),
+              const SizedBox(height: 20),
+              _buildInsuranceSelector(),
+              const SizedBox(height: 20),
+              if (_selectedInsuranceId != null) ...[
+                _buildField('رقم بوليصة التأمين', _insuranceNumberController, Icons.badge_outlined),
+                const SizedBox(height: 20),
+              ],
+              const SizedBox(height: 20),
               SizedBox(
                 width: double.infinity,
                 height: 60,
@@ -567,6 +700,49 @@ class _AddEditPatientBottomSheetState extends ConsumerState<_AddEditPatientBotto
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
           ),
           validator: (val) => val == null || val.isEmpty ? 'هذا الحقل مطلوب' : null,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildInsuranceSelector() {
+    final authState = ref.watch(authProvider);
+    final clinicId = authState is AuthAuthenticated ? authState.profile?.clinicId : null;
+    if (clinicId == null) return const SizedBox.shrink();
+
+    final companiesAsync = ref.watch(_insCompaniesProvider(clinicId));
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        const Text('شركة التأمين (اختياري)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey)),
+        const SizedBox(height: 8),
+        companiesAsync.when(
+          data: (companies) {
+            return DropdownButtonFormField<String>(
+              value: _selectedInsuranceId,
+              isExpanded: true,
+              hint: const Text('بدون تأمين', textAlign: TextAlign.right),
+              decoration: InputDecoration(
+                filled: true,
+                fillColor: Colors.grey[50],
+                prefixIcon: const Icon(Icons.health_and_safety_outlined, color: Colors.grey),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+              ),
+              items: [
+                const DropdownMenuItem<String>(value: null, child: Text('بدون تأمين', textAlign: TextAlign.right)),
+                ...companies.map((c) => DropdownMenuItem(value: c.id, child: Text(c.name, textAlign: TextAlign.right))),
+              ],
+              onChanged: (val) {
+                setState(() {
+                  _selectedInsuranceId = val;
+                  if (val == null) _insuranceNumberController.clear();
+                });
+              },
+            );
+          },
+          loading: () => const LinearProgressIndicator(),
+          error: (e, _) => const Text('خطأ في تحميل شركات التأمين'),
         ),
       ],
     );

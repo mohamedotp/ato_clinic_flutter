@@ -1,5 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/profile.dart';
+import '../core/services/local_storage_service.dart';
 
 class AuthService {
   final SupabaseClient _client = Supabase.instance.client;
@@ -24,10 +25,35 @@ class AuthService {
           .select()
           .eq('id', id)
           .maybeSingle(); // Better than .single() to avoid exception if missing
-      return data != null ? Profile.fromJson(data) : null;
+          
+      if (data != null) {
+        await LocalStorageService.saveProfile(data);
+        _lastProfileFromCache = false;
+        return Profile.fromJson(data);
+      }
+      return null;
     } catch (e) {
+      final cachedProfile = LocalStorageService.getProfile();
+      if (cachedProfile != null && cachedProfile['id'] == id) {
+        _lastProfileFromCache = true;
+        return Profile.fromJson(cachedProfile);
+      }
       return null;
     }
+  }
+
+  bool _lastProfileFromCache = false;
+
+  /// Returns true if the last getProfile call used the cache (offline)
+  bool isProfileFromCache(String id) => _lastProfileFromCache;
+
+  /// Returns a Profile object from cache for a given user ID
+  Profile? getCachedProfileForUser(String id) {
+    final cachedProfile = LocalStorageService.getProfile();
+    if (cachedProfile != null && cachedProfile['id'] == id) {
+      return Profile.fromJson(cachedProfile);
+    }
+    return null;
   }
 
   Future<Map<String, dynamic>?> getClinicStatus(String clinicId) async {
@@ -37,9 +63,10 @@ class AuthService {
           .select('is_active, subscription_ends_at')
           .eq('id', clinicId)
           .single();
+      await LocalStorageService.saveClinicStatus(data);
       return data;
     } catch (e) {
-      return null;
+      return LocalStorageService.getClinicStatus();
     }
   }
 

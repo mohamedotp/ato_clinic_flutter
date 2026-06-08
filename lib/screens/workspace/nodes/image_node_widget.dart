@@ -29,6 +29,44 @@ class ImageNodeWidget extends StatelessWidget {
     this.onClearConnections,
   });
 
+  void _showFullScreenImage(BuildContext context, String url) {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: EdgeInsets.zero,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            GestureDetector(
+              onTap: () => Navigator.pop(context),
+              child: Container(color: Colors.black87),
+            ),
+            InteractiveViewer(
+              panEnabled: true,
+              minScale: 0.5,
+              maxScale: 4.0,
+              child: CachedNetworkImage(
+                imageUrl: url,
+                fit: BoxFit.contain,
+                placeholder: (context, url) => const Center(child: CircularProgressIndicator(color: Colors.white)),
+                errorWidget: (context, url, error) => const Icon(Icons.broken_image, color: Colors.white, size: 48),
+              ),
+            ),
+            Positioned(
+              top: 40,
+              right: 20,
+              child: IconButton(
+                icon: const Icon(Icons.close, color: Colors.white, size: 32),
+                onPressed: () => Navigator.pop(context),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return BaseNodeWrapper(
@@ -53,11 +91,18 @@ class ImageNodeWidget extends StatelessWidget {
               ),
               clipBehavior: Clip.antiAlias,
               child: note.content != null && note.content!.isNotEmpty
-                  ? CachedNetworkImage(
-                      imageUrl: note.content!,
-                      fit: BoxFit.cover,
-                      placeholder: (context, url) => const Center(child: CircularProgressIndicator()),
-                      errorWidget: (context, url, error) => const Icon(Icons.broken_image, color: Colors.grey),
+                  ? GestureDetector(
+                      onTap: () {
+                        onTap(); // Trigger selection
+                        _showFullScreenImage(context, note.content!);
+                      },
+                      child: CachedNetworkImage(
+                        imageUrl: note.content!,
+                        fit: BoxFit.cover,
+                        width: double.infinity,
+                        placeholder: (context, url) => const Center(child: CircularProgressIndicator()),
+                        errorWidget: (context, url, error) => const Icon(Icons.broken_image, color: Colors.grey),
+                      ),
                     )
                   : const Center(child: Icon(Icons.image, color: Colors.grey, size: 48)),
             ),

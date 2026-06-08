@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
-import '../../models/appointment.dart';
 import '../../providers/appointments_provider.dart';
+import '../../providers/auth_provider.dart';
+import '../../models/appointment.dart';
+import '../../models/profile.dart';
 import '../../widgets/modals/add_edit_appointment_modal.dart';
 import '../visits/visits_list_screen.dart';
 
@@ -505,6 +507,9 @@ class _AppointmentsListScreenState extends ConsumerState<AppointmentsListScreen>
 
   Widget _buildAppointmentListItem(Appointment a) {
     final statusColor = _getStatusColor(a.status);
+    final authState = ref.read(authProvider);
+    final isReceptionist = authState is AuthAuthenticated && authState.profile?.role == UserRole.receptionist;
+
     return InkWell(
       onTap: () => AddEditAppointmentModal.show(context, appointment: a),
       child: Container(
@@ -586,31 +591,32 @@ class _AppointmentsListScreenState extends ConsumerState<AppointmentsListScreen>
                           padding: EdgeInsets.only(right: 4),
                           child: Icon(Icons.message, size: 16, color: Colors.green),
                         ),
-                      InkWell(
-                        onTap: () => context.push('/workspace/${a.patientId}'),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: primaryColor.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: const Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.person_outline, size: 12, color: primaryColor),
-                              SizedBox(width: 4),
-                              Text(
-                                'الملف',
-                                style: TextStyle(
-                                  color: primaryColor,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w900,
+                      if (!isReceptionist)
+                        InkWell(
+                          onTap: () => context.push('/workspace/${a.patientId}'),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: primaryColor.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.person_outline, size: 12, color: primaryColor),
+                                SizedBox(width: 4),
+                                Text(
+                                  'الملف',
+                                  style: TextStyle(
+                                    color: primaryColor,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w900,
+                                  ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         ),
-                      ),
                     ],
                   ),
                   const SizedBox(height: 8),

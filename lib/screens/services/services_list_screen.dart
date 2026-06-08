@@ -71,7 +71,7 @@ class ServicesListScreen extends ConsumerWidget {
                   padding: const EdgeInsets.all(20),
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 2,
-                    childAspectRatio: 1.3,
+                    childAspectRatio: 1.15,
                     crossAxisSpacing: 16,
                     mainAxisSpacing: 16,
                   ),

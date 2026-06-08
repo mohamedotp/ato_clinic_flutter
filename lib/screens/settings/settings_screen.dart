@@ -5,6 +5,7 @@ import '../../providers/clinic_provider.dart';
 import '../../models/clinic.dart';
 import '../../models/profile.dart';
 import '../../providers/auth_provider.dart';
+import '../../widgets/map_location_picker.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -18,18 +19,28 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   bool _isSaving = false;
   late TextEditingController _clinicNameController;
   late TextEditingController _userNameController;
+  late TextEditingController _addressController;
+  late TextEditingController _latitudeController;
+  late TextEditingController _longitudeController;
 
   @override
   void initState() {
     super.initState();
     _clinicNameController = TextEditingController();
     _userNameController = TextEditingController();
+    _addressController = TextEditingController();
+    // lat/lng controllers removed — stored internally
+    _latitudeController = TextEditingController();
+    _longitudeController = TextEditingController();
   }
 
   @override
   void dispose() {
     _clinicNameController.dispose();
     _userNameController.dispose();
+    _addressController.dispose();
+    _latitudeController.dispose();
+    _longitudeController.dispose();
     super.dispose();
   }
 
@@ -119,6 +130,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           if (_clinicNameController.text.isEmpty) {
             _clinicNameController.text = clinic.name;
           }
+          if (_addressController.text.isEmpty && clinic.address != null) {
+            _addressController.text = clinic.address!;
+          }
+          if (_latitudeController.text.isEmpty && clinic.latitude != null) {
+            _latitudeController.text = clinic.latitude.toString();
+          }
+          if (_longitudeController.text.isEmpty && clinic.longitude != null) {
+            _longitudeController.text = clinic.longitude.toString();
+          }
           
           if (authState is AuthAuthenticated && _userNameController.text.isEmpty) {
             _userNameController.text = authState.profile?.fullName ?? '';
@@ -130,28 +150,30 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 // Quick Navigation Cards
-                Row(
-                  children: [
-                    Expanded(
-                      child: _ActionCard(
-                        title: 'إدارة الطاقم',
-                        icon: Icons.people_outline,
-                        color: Colors.indigo,
-                        onTap: () => context.push('/settings/users'),
+                if (authState is AuthAuthenticated && (authState.profile?.role == UserRole.admin || authState.profile?.role == UserRole.super_admin)) ...[
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _ActionCard(
+                          title: 'إدارة الطاقم',
+                          icon: Icons.people_outline,
+                          color: Colors.indigo,
+                          onTap: () => context.push('/settings/users'),
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: _ActionCard(
-                        title: 'الخدمات الطبية',
-                        icon: Icons.medical_services_outlined,
-                        color: Colors.teal,
-                        onTap: () => context.push('/services'),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: _ActionCard(
+                          title: 'سجل العمليات والرقابة',
+                          icon: Icons.security_outlined,
+                          color: const Color(0xFF006D63),
+                          onTap: () => context.push('/settings/audit-logs'),
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 32),
+                    ],
+                  ),
+                  const SizedBox(height: 32),
+                ],
                 
                 _buildSectionHeader('معلومات المركز الطبي'),
                 _buildTextField(
@@ -159,7 +181,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   label: 'اسم المركز',
                   onSubmitted: (val) => _updateSettings(clinic, {'name': val}),
                 ),
-                
+                const SizedBox(height: 16),
+                _buildTextField(
+                  controller: _addressController,
+                  label: 'العنوان التفصيلي (مثال: شارع التحرير، الدقي، الجيزة)',
+                  onSubmitted: (val) => _updateSettings(clinic, {'address': val}),
+                ),
+                const SizedBox(height: 16),
+                // Map location picker button
+                _buildMapPickerTile(clinic),
                 const SizedBox(height: 24),
 
                 // Live Status Section
@@ -479,6 +509,77 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       child: Text(
         title,
         style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF006D63)),
+      ),
+    );
+  }
+
+  Widget _buildMapPickerTile(Clinic clinic) {
+    final hasLocation = clinic.latitude != null && clinic.longitude != null;
+    return InkWell(
+      onTap: () async {
+        final picked = await MapLocationPicker.show(
+          context,
+          initialLat: clinic.latitude,
+          initialLng: clinic.longitude,
+        );
+        if (picked != null) {
+          await _updateSettings(clinic, {
+            'latitude': picked.latitude,
+            'longitude': picked.longitude,
+          });
+        }
+      },
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: hasLocation ? const Color(0xFFE6F3F1) : Colors.grey[50],
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: hasLocation ? const Color(0xFF006D63).withValues(alpha: 0.4) : Colors.grey[300]!,
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: hasLocation ? const Color(0xFF006D63) : Colors.grey[300],
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                hasLocation ? Icons.location_on : Icons.add_location_alt_outlined,
+                color: Colors.white,
+                size: 22,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    hasLocation ? 'تم تحديد الموقع على الخريطة ✅' : 'تحديد الموقع على الخريطة',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15,
+                      color: hasLocation ? const Color(0xFF006D63) : Colors.grey[700],
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    hasLocation
+                        ? '${clinic.latitude!.toStringAsFixed(5)}, ${clinic.longitude!.toStringAsFixed(5)}'
+                        : 'اضغط لاختيار موقع العيادة من الخريطة أو GPS',
+                    style: const TextStyle(fontSize: 12, color: Colors.grey),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_left, color: Colors.grey),
+          ],
+        ),
       ),
     );
   }

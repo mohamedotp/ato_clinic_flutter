@@ -121,8 +121,8 @@ class _VoiceNodeWidgetState extends State<VoiceNodeWidget> {
       final fileName = 'voice_${DateTime.now().millisecondsSinceEpoch}.m4a';
       final storagePath = 'clinic-files/${widget.note.clinicId}/${widget.note.patientId}/$fileName';
 
-      await Supabase.instance.client.storage.from('doctor-assets').upload(storagePath, file);
-      final publicUrl = Supabase.instance.client.storage.from('doctor-assets').getPublicUrl(storagePath);
+      await Supabase.instance.client.storage.from('clinic-files').upload(storagePath, file);
+      final publicUrl = Supabase.instance.client.storage.from('clinic-files').getPublicUrl(storagePath);
 
       widget.onMetadataChange({
         ...(widget.note.metadata ?? {}),
@@ -168,63 +168,65 @@ class _VoiceNodeWidgetState extends State<VoiceNodeWidget> {
       onToggleLock: widget.onToggleLock,
       onClearConnections: widget.onClearConnections,
       icon: Icons.mic_none_outlined,
-      child: Center(
+              child: Center(
         child: _isUploading
             ? const CircularProgressIndicator()
-            : Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  if (_isRecording) ...[
-                    const Icon(Icons.mic, color: Colors.red, size: 48),
-                    const SizedBox(height: 12),
-                    Text(
-                      _formatTime(_duration),
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.red),
-                    ),
-                    const SizedBox(height: 12),
-                    ElevatedButton.icon(
-                      onPressed: _stopRecording,
-                      icon: const Icon(Icons.stop),
-                      label: const Text('إيقاف'),
-                      style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
-                    ),
-                  ] else if (hasAudio) ...[
-                    GestureDetector(
-                      onTap: _togglePlayback,
-                      child: Container(
-                        width: 64,
-                        height: 64,
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          _isPlaying ? Icons.pause : Icons.play_arrow,
-                          size: 32,
-                          color: Theme.of(context).primaryColor,
+            : SingleChildScrollView(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    if (_isRecording) ...[
+                      const Icon(Icons.mic, color: Colors.red, size: 36),
+                      const SizedBox(height: 8),
+                      Text(
+                        _formatTime(_duration),
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.red),
+                      ),
+                      const SizedBox(height: 8),
+                      ElevatedButton.icon(
+                        onPressed: _stopRecording,
+                        icon: const Icon(Icons.stop),
+                        label: const Text('إيقاف'),
+                        style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+                      ),
+                    ] else if (hasAudio) ...[
+                      GestureDetector(
+                        onTap: _togglePlayback,
+                        child: Container(
+                          width: 56,
+                          height: 56,
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            _isPlaying ? Icons.pause : Icons.play_arrow,
+                            size: 28,
+                            color: Theme.of(context).primaryColor,
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      _formatTime(widget.note.metadata?['duration'] ?? 0),
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                    ),
-                    const SizedBox(height: 8),
-                    TextButton.icon(
-                      onPressed: _startRecording,
-                      icon: const Icon(Icons.refresh, size: 16),
-                      label: const Text('إعادة تسجيل', style: TextStyle(fontSize: 11)),
-                    ),
-                  ] else ...[
-                    IconButton(
-                      icon: const Icon(Icons.mic, size: 48, color: Colors.blueAccent),
-                      onPressed: _startRecording,
-                    ),
-                    const SizedBox(height: 8),
-                    const Text('اضغط لبدء التسجيل', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                      const SizedBox(height: 8),
+                      Text(
+                        _formatTime(widget.note.metadata?['duration'] ?? 0),
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                      ),
+                      const SizedBox(height: 4),
+                      TextButton.icon(
+                        onPressed: _startRecording,
+                        icon: const Icon(Icons.refresh, size: 16),
+                        label: const Text('إعادة تسجيل', style: TextStyle(fontSize: 11)),
+                      ),
+                    ] else ...[
+                      IconButton(
+                        icon: const Icon(Icons.mic, size: 40, color: Colors.blueAccent),
+                        onPressed: _startRecording,
+                      ),
+                      const SizedBox(height: 4),
+                      const Text('اضغط لبدء التسجيل', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                    ],
                   ],
-                ],
+                ),
               ),
       ),
     );

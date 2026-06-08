@@ -10,6 +10,10 @@ class Patient {
   final String? address;
   final String? patientCode;
   final String? status;
+  final String? insuranceCompanyId;
+  final String? insuranceNumber;
+  final DateTime? insuranceExpiry;
+  final String? referralSource;
   final DateTime createdAt;
 
   Patient({
@@ -24,6 +28,10 @@ class Patient {
     this.address,
     this.patientCode,
     this.status,
+    this.insuranceCompanyId,
+    this.insuranceNumber,
+    this.insuranceExpiry,
+    this.referralSource,
     required this.createdAt,
   });
 
@@ -40,7 +48,13 @@ class Patient {
       address: json['address'],
       patientCode: json['patient_code'],
       status: json['status'],
-      createdAt: json['created_at'] != null ? DateTime.parse(json['created_at']) : DateTime.now(),
+      insuranceCompanyId: json['insurance_company_id'] as String?,
+      insuranceNumber: json['insurance_number'] as String?,
+      insuranceExpiry: json['insurance_expiry'] != null
+          ? DateTime.parse(json['insurance_expiry'] as String)
+          : null,
+      referralSource: json['referral_source'] as String?,
+      createdAt: DateTime.parse(json['created_at'] as String),
     );
   }
 
@@ -50,13 +64,18 @@ class Patient {
       'clinic_id': clinicId,
       'full_name': fullName,
       'phone': phone,
-      'patient_code': patientCode,
-      'status': status,
       'email': email,
       'date_of_birth': dateOfBirth?.toIso8601String(),
       'gender': gender,
       'national_id': nationalId,
       'address': address,
+      'patient_code': patientCode,
+      'status': status,
+      'insurance_company_id': insuranceCompanyId,
+      'insurance_number': insuranceNumber,
+      'insurance_expiry': insuranceExpiry?.toIso8601String(),
+      'referral_source': referralSource,
+      'created_at': createdAt.toIso8601String(),
     };
   }
 }

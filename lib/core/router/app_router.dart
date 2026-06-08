@@ -1,8 +1,10 @@
 import 'dart:async';
+import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/auth_provider.dart';
+import 'package:ato_clinic_flutter/core/theme/app_colors.dart';
 import 'package:ato_clinic_flutter/screens/auth/login_screen.dart';
 import 'package:ato_clinic_flutter/screens/dashboard/dashboard_screen.dart';
 import 'package:ato_clinic_flutter/screens/patients/patients_list_screen.dart';
@@ -12,9 +14,15 @@ import 'package:ato_clinic_flutter/screens/visits/visits_list_screen.dart';
 import 'package:ato_clinic_flutter/screens/workspace/workspace_screen.dart';
 import 'package:ato_clinic_flutter/screens/settings/settings_screen.dart';
 import 'package:ato_clinic_flutter/screens/settings/users_list_screen.dart';
+import 'package:ato_clinic_flutter/screens/settings/audit_logs_screen.dart';
 import 'package:ato_clinic_flutter/screens/clinic/ai_dashboard_screen.dart';
 import 'package:ato_clinic_flutter/screens/handoff/handoff_screen.dart';
+import 'package:ato_clinic_flutter/screens/notifications/notifications_screen.dart';
 import 'package:ato_clinic_flutter/models/profile.dart';
+// Patient Screens
+import 'package:ato_clinic_flutter/screens/patient_portal/patient_dashboard_screen.dart';
+import 'package:ato_clinic_flutter/screens/patient_portal/patient_chat_screen.dart';
+import 'package:ato_clinic_flutter/screens/patient_portal/patient_booking_screen.dart';
 // Super Admin screens
 import 'package:ato_clinic_flutter/screens/super_admin/super_admin_dashboard_screen.dart';
 import 'package:ato_clinic_flutter/screens/super_admin/clinic_management_screen.dart';
@@ -26,6 +34,18 @@ import 'package:ato_clinic_flutter/screens/super_admin/service_activation_screen
 import 'package:ato_clinic_flutter/screens/super_admin/support_tickets_screen.dart';
 import 'package:ato_clinic_flutter/screens/super_admin/system_admins_screen.dart';
 import 'package:ato_clinic_flutter/screens/super_admin/clinic_selector_screen.dart';
+import 'package:ato_clinic_flutter/screens/materials/materials_screen.dart';
+// Basic Modules
+import 'package:ato_clinic_flutter/screens/finance/finance_screen.dart';
+import 'package:ato_clinic_flutter/screens/finance/doctor_percentage_screen.dart';
+import 'package:ato_clinic_flutter/screens/lab/lab_orders_screen.dart';
+import 'package:ato_clinic_flutter/screens/treatment/treatment_plans_screen.dart';
+import 'package:ato_clinic_flutter/screens/procedures/procedure_steps_screen.dart';
+import 'package:ato_clinic_flutter/screens/insurance/insurance_screen.dart';
+import 'package:ato_clinic_flutter/screens/reports/reports_screen.dart' as clinic_reports;
+import 'package:ato_clinic_flutter/screens/staff/staff_attendance_screen.dart';
+import 'package:ato_clinic_flutter/screens/staff/staff_tasks_screen.dart';
+import 'package:ato_clinic_flutter/screens/staff/staff_training_screen.dart';
 
 /// A listenable that triggers GoRouter to re-evaluate the redirect logic
 /// whenever the auth state changes, without recreating the entire GoRouter instance.
@@ -53,14 +73,24 @@ final routerProvider = Provider<GoRouter>((ref) {
       final authState = ref.read(authProvider);
       final bool isAuthenticated = authState is AuthAuthenticated;
       final bool isLoggingIn = state.matchedLocation == '/login';
+      final bool isSplash = state.matchedLocation == '/splash';
+
+      if (authState is AuthInitial || authState is AuthLoading) {
+        // If the user is explicitly logging in, keep them on the login screen
+        if (isLoggingIn) return null;
+        // Otherwise, show splash screen while loading session/profile
+        return isSplash ? null : '/splash';
+      }
 
       if (!isAuthenticated) {
         return isLoggingIn ? null : '/login';
       }
 
-      if (isLoggingIn) {
-        final profile = (authState).profile;
-        return profile?.role == UserRole.super_admin ? '/super-admin' : '/';
+      if (isLoggingIn || isSplash) {
+        final profile = (authState as AuthAuthenticated).profile;
+        if (profile?.role == UserRole.super_admin) return '/super-admin';
+        if (profile?.role == UserRole.patient) return '/patient-dashboard';
+        return '/';
       }
 
       final profile = (authState).profile;
@@ -82,6 +112,15 @@ final routerProvider = Provider<GoRouter>((ref) {
         return '/';
       }
 
+      // Guard patient routes
+      final isPatient = role == UserRole.patient;
+      if (isPatient && !state.matchedLocation.startsWith('/patient-')) {
+        return '/patient-dashboard';
+      }
+      if (!isPatient && state.matchedLocation.startsWith('/patient-')) {
+        return '/';
+      }
+
       // Doctor can't access user management
       if (role == UserRole.doctor && state.matchedLocation.startsWith('/settings')) {
         if (state.matchedLocation.startsWith('/settings/users')) {
@@ -92,6 +131,15 @@ final routerProvider = Provider<GoRouter>((ref) {
       return null;
     },
     routes: [
+      GoRoute(
+        path: '/splash',
+        builder: (context, state) => const Scaffold(
+          backgroundColor: AppColors.primary,
+          body: Center(
+            child: CircularProgressIndicator(color: Colors.white),
+          ),
+        ),
+      ),
       // ── Clinic routes ──────────────────────────────────────
       GoRoute(
         path: '/',
@@ -132,6 +180,10 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: 'users',
             builder: (context, state) => const UsersListScreen(),
           ),
+          GoRoute(
+            path: 'audit-logs',
+            builder: (context, state) => const AuditLogsScreen(),
+          ),
         ],
       ),
       GoRoute(
@@ -139,8 +191,73 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const AiDashboardScreen(),
       ),
       GoRoute(
+        path: '/materials',
+        builder: (context, state) => const MaterialsScreen(),
+      ),
+      GoRoute(
         path: '/handoff',
         builder: (context, state) => const HandoffScreen(),
+      ),
+      GoRoute(
+        path: '/notifications',
+        builder: (context, state) => const NotificationsScreen(),
+      ),
+      GoRoute(
+        path: '/finance',
+        builder: (context, state) => const FinanceScreen(),
+      ),
+      GoRoute(
+        path: '/reports',
+        builder: (context, state) => const clinic_reports.ReportsScreen(),
+      ),
+      GoRoute(
+        path: '/doctor-percentage',
+        builder: (context, state) => const DoctorPercentageScreen(),
+      ),
+      GoRoute(
+        path: '/lab-orders',
+        builder: (context, state) => const LabOrdersScreen(),
+      ),
+      GoRoute(
+        path: '/treatment-plans',
+        builder: (context, state) => const TreatmentPlansScreen(),
+      ),
+      GoRoute(
+        path: '/procedures',
+        builder: (context, state) => const ProcedureStepsScreen(),
+      ),
+      GoRoute(
+        path: '/insurance',
+        builder: (context, state) => const InsuranceScreen(),
+      ),
+      GoRoute(
+        path: '/staff/attendance',
+        builder: (context, state) => const StaffAttendanceScreen(),
+      ),
+      GoRoute(
+        path: '/staff/tasks',
+        builder: (context, state) => const StaffTasksScreen(),
+      ),
+      GoRoute(
+        path: '/staff/training',
+        builder: (context, state) => const StaffTrainingScreen(),
+      ),
+
+      // ── Patient routes ──────────────────────────────────────
+      GoRoute(
+        path: '/patient-dashboard',
+        builder: (context, state) => const PatientDashboardScreen(),
+      ),
+      GoRoute(
+        path: '/patient-chat/:doctorId',
+        builder: (context, state) {
+          final doctorId = state.pathParameters['doctorId']!;
+          return PatientChatScreen(doctorId: doctorId);
+        },
+      ),
+      GoRoute(
+        path: '/patient-booking',
+        builder: (context, state) => const PatientBookingScreen(),
       ),
 
       // ── Super Admin routes ─────────────────────────────────

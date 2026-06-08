@@ -248,11 +248,17 @@ class _AddStaffBottomSheetState extends ConsumerState<_AddStaffBottomSheet> {
         if (errorMsg.contains('Exception:')) {
           errorMsg = errorMsg.replaceFirst('Exception: ', '');
         }
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('خطأ', style: TextStyle(color: Colors.red)),
             content: Text(errorMsg),
-            backgroundColor: Colors.redAccent,
-            behavior: SnackBarBehavior.floating,
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('حسناً'),
+              ),
+            ],
           ),
         );
       }

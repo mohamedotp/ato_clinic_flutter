@@ -7,6 +7,8 @@ import '../../providers/auth_provider.dart';
 import '../../providers/services_provider.dart';
 import '../../providers/tts_provider.dart';
 import 'package:intl/intl.dart';
+import '../../services/treasury_service.dart';
+import '../../services/staff_service.dart';
 
 class VisitsListScreen extends ConsumerWidget {
   const VisitsListScreen({super.key});
@@ -246,6 +248,7 @@ class _AddEditVisitModalState extends ConsumerState<AddEditVisitModal> {
   String? _selectedPatientId;
   final List<String> _selectedServiceIds = [];
   bool _isLoading = false;
+  bool _isPaidNow = true; // افتراضياً تم السداد
 
   @override
   void initState() {
@@ -277,6 +280,31 @@ class _AddEditVisitModalState extends ConsumerState<AddEditVisitModal> {
         await ref.read(visitService).updateVisit(widget.visit!.id, data, _selectedServiceIds);
       } else {
         await ref.read(visitService).addVisit(data, _selectedServiceIds);
+        // Automatically add to treasury ONLY if paid now
+        final cost = double.tryParse(_costController.text) ?? 0;
+        if (cost > 0 && _isPaidNow) {
+          final patientName = ref.read(patientsProvider).valueOrNull?.firstWhere((p) => p.id == _selectedPatientId).fullName ?? 'مريض';
+          await TreasuryService().addTransaction({
+            'clinic_id': authState.profile?.clinicId,
+            'type': 'income',
+            'amount': cost,
+            'description': 'إيراد زيارة طبية: $patientName',
+            'reference_type': 'patient',
+            'reference_id': _selectedPatientId,
+            'payment_method': 'cash',
+            'transaction_date': DateTime.now().toIso8601String(),
+          });
+        }
+        
+        // Automated Task Assignment
+        final patientName = ref.read(patientsProvider).valueOrNull?.firstWhere((p) => p.id == _selectedPatientId).fullName ?? 'مريض';
+        await StaffService().createTask({
+          'clinic_id': authState.profile?.clinicId,
+          'title': 'متابعة وتأكيد: $patientName',
+          'description': 'يرجى مراجعة حالة المريض وتحديد موعد استشارة إن لزم الأمر.',
+          'status': 'pending',
+          'created_by': authState.profile?.id,
+        });
       }
 
       ref.invalidate(visitsProvider);
@@ -391,6 +419,52 @@ class _AddEditVisitModalState extends ConsumerState<AddEditVisitModal> {
               ),
               const SizedBox(height: 16),
               _buildTextField('التكلفة (ج.م) - سيتم تحديثها تلقائياً', _costController, Icons.payments_outlined, 1, TextInputType.number),
+              const SizedBox(height: 16),
+              // Payment toggle
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  color: _isPaidNow ? const Color(0xFFE8F5E9) : const Color(0xFFFFF3E0),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: _isPaidNow ? Colors.green.shade200 : Colors.orange.shade200,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Switch.adaptive(
+                      value: _isPaidNow,
+                      activeColor: Colors.green.shade700,
+                      onChanged: (v) => setState(() => _isPaidNow = v),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _isPaidNow ? 'تم السداد الآن ✅' : 'مديونية (سداد لاحقاً) 🕐',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                              color: _isPaidNow ? Colors.green.shade700 : Colors.orange.shade800,
+                            ),
+                          ),
+                          Text(
+                            _isPaidNow
+                                ? 'سيتم تسجيل المبلغ في الخزينة فوراً'
+                                : 'ستُسجل الزيارة كمديونية على المريض',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
               const SizedBox(height: 32),
               SizedBox(
                 width: double.infinity,

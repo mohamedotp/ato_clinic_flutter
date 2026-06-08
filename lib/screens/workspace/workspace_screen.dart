@@ -19,6 +19,8 @@ import 'nodes/followup_node_widget.dart';
 import 'nodes/alert_node_widget.dart';
 import 'nodes/file_node_widget.dart';
 import 'nodes/voice_node_widget.dart';
+import 'nodes/material_usage_node_widget.dart';
+import '../patients/patient_finance_tab.dart';
 
 class WorkspaceScreen extends ConsumerStatefulWidget {
   final String patientId;
@@ -102,6 +104,7 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
       case 'followup': return 'متابعة';
       case 'file': return 'ملف مرفق';
       case 'voice': return 'تسجيل صوتي';
+      case 'materials': return 'صرف الخامات';
       default: return 'ملاحظة جديدة';
     }
   }
@@ -113,13 +116,89 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
       case 'alert': return '#fef2f2';
       case 'file': return '#f3f4f6';
       case 'voice': return '#eef2ff';
+      case 'materials': return '#f5f3ff';
       default: return '#ffffff';
     }
   }
 
   Future<void> _pickAndUploadImage() async {
+    // Show choice dialog: Camera or Gallery
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        ),
+        padding: const EdgeInsets.fromLTRB(24, 20, 24, 36),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40, height: 4,
+              decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)),
+            ),
+            const SizedBox(height: 20),
+            const Text('اختر مصدر الصورة',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+            const SizedBox(height: 24),
+            Row(
+              children: [
+                Expanded(
+                  child: InkWell(
+                    onTap: () => Navigator.pop(context, ImageSource.camera),
+                    borderRadius: BorderRadius.circular(16),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 20),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF006D63).withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: const Color(0xFF006D63).withValues(alpha: 0.2)),
+                      ),
+                      child: const Column(
+                        children: [
+                          Icon(Icons.camera_alt_rounded, size: 36, color: Color(0xFF006D63)),
+                          SizedBox(height: 8),
+                          Text('الكاميرا', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF006D63))),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: InkWell(
+                    onTap: () => Navigator.pop(context, ImageSource.gallery),
+                    borderRadius: BorderRadius.circular(16),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 20),
+                      decoration: BoxDecoration(
+                        color: Colors.indigo.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Colors.indigo.withValues(alpha: 0.2)),
+                      ),
+                      child: const Column(
+                        children: [
+                          Icon(Icons.photo_library_rounded, size: 36, color: Colors.indigo),
+                          SizedBox(height: 8),
+                          Text('الصور', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.indigo)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (source == null) return;
+
     final picker = ImagePicker();
-    final image = await picker.pickImage(source: ImageSource.gallery);
+    final image = await picker.pickImage(source: source, imageQuality: 80);
     if (image == null) return;
 
     final authState = ref.read(authProvider);
@@ -127,13 +206,39 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
     final clinicId = authState.profile?.clinicId;
     if (clinicId == null) return;
 
+    // Show loading indicator
+    if (mounted) {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => const Center(
+          child: Card(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(16))),
+            child: Padding(
+              padding: EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CircularProgressIndicator(color: Color(0xFF006D63)),
+                  SizedBox(height: 16),
+                  Text('جاري رفع الصورة...'),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
     try {
       final file = File(image.path);
       final fileName = '${DateTime.now().millisecondsSinceEpoch}.jpg';
       final path = 'clinic-files/$clinicId/${widget.patientId}/$fileName';
       
-      await Supabase.instance.client.storage.from('doctor-assets').upload(path, file);
-      final publicUrl = Supabase.instance.client.storage.from('doctor-assets').getPublicUrl(path);
+      await Supabase.instance.client.storage.from('clinic-files').upload(path, file);
+      final publicUrl = Supabase.instance.client.storage.from('clinic-files').getPublicUrl(path);
+
+      if (mounted) Navigator.of(context, rootNavigator: true).pop(); // close loading
 
       final size = MediaQuery.of(context).size;
       final matrix = _transformationController.value;
@@ -152,10 +257,11 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
         'position_x': cx - 144,
         'position_y': cy - 100,
         'width': 288,
-        'height': 200,
+        'height': 220,
       });
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('خطأ في الرفع: $e')));
+      if (mounted) Navigator.of(context, rootNavigator: true).pop(); // close loading
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('خطأ في الرفع: $e')));
     }
   }
 
@@ -190,6 +296,7 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
                 _ModalAction(icon: Icons.warning, label: 'تنبيه', color: Colors.red, onTap: () { context.pop(); _handleAddNote('alert'); }),
                 _ModalAction(icon: Icons.image, label: 'صورة', color: Colors.indigo, onTap: () { context.pop(); _pickAndUploadImage(); }),
                 _ModalAction(icon: Icons.attach_file, label: 'ملف', color: Colors.blueGrey, onTap: () { context.pop(); _handleAddNote('file'); }),
+                _ModalAction(icon: Icons.inventory_2_rounded, label: 'خامات', color: const Color(0xFF7B3FBE), onTap: () { context.pop(); _handleAddNote('materials'); }),
               ],
             ),
             const SizedBox(height: 24),
@@ -433,6 +540,80 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
                   _HeaderAction(icon: Icons.center_focus_strong, onTap: () {
                     _transformationController.value = Matrix4.identity()..translate(-1000.0, -1000.0)..scale(0.8);
                   }),
+                  const SizedBox(width: 8),
+                  // زر الحسابات المالية
+                  GestureDetector(
+                    onTap: () {
+                      showModalBottomSheet(
+                        context: context,
+                        isScrollControlled: true,
+                        backgroundColor: Colors.transparent,
+                        builder: (_) => DraggableScrollableSheet(
+                          initialChildSize: 0.75,
+                          minChildSize: 0.5,
+                          maxChildSize: 0.95,
+                          builder: (_, ctrl) => Container(
+                            decoration: const BoxDecoration(
+                              color: Color(0xFFF8FAF9),
+                              borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+                            ),
+                            child: Column(
+                              children: [
+                                const SizedBox(height: 12),
+                                Container(
+                                  width: 40, height: 4,
+                                  decoration: BoxDecoration(
+                                    color: Colors.grey[300],
+                                    borderRadius: BorderRadius.circular(2),
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                                const Text(
+                                  'الحسابات المالية',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 18,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Expanded(
+                                  child: PatientFinanceTab(
+                                    patientId: widget.patientId,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF006D63).withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: const Color(0xFF006D63).withValues(alpha: 0.2),
+                        ),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.account_balance_wallet_rounded,
+                              size: 16, color: Color(0xFF006D63)),
+                          SizedBox(width: 6),
+                          Text(
+                            'الحسابات',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Color(0xFF006D63),
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -494,15 +675,16 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
     }
 
     switch (note.type) {
-      case 'visit': return VisitNoteNodeWidget(note: note, isSelected: isSelected, onTap: onTap, onDelete: onDelete, onTitleChange: onTitleChange, onColorChange: onColorChange, onMetadataChange: onMetadataChange, onPositionUpdate: onPositionUpdate, onConnectStart: onConnectStart, onToggleLock: onToggleLock, onClearConnections: onClearConnections);
-      case 'prescription': return PrescriptionNodeWidget(note: note, isSelected: isSelected, onTap: onTap, onDelete: onDelete, onTitleChange: onTitleChange, onColorChange: onColorChange, onMetadataChange: onMetadataChange, onPositionUpdate: onPositionUpdate, onConnectStart: onConnectStart, onToggleLock: onToggleLock, onClearConnections: onClearConnections);
-      case 'followup': return FollowupNodeWidget(note: note, isSelected: isSelected, onTap: onTap, onDelete: onDelete, onTitleChange: onTitleChange, onColorChange: onColorChange, onMetadataChange: onMetadataChange, onPositionUpdate: onPositionUpdate, onConnectStart: onConnectStart, onToggleLock: onToggleLock, onClearConnections: onClearConnections);
-      case 'alert': return AlertNodeWidget(note: note, isSelected: isSelected, onTap: onTap, onDelete: onDelete, onTitleChange: onTitleChange, onColorChange: onColorChange, onContentChange: onContentChange, onPositionUpdate: onPositionUpdate, onConnectStart: onConnectStart, onToggleLock: onToggleLock, onClearConnections: onClearConnections);
-      case 'todo': return TodoNodeWidget(note: note, isSelected: isSelected, onTap: onTap, onDelete: onDelete, onTitleChange: onTitleChange, onColorChange: onColorChange, onContentChange: onContentChange, onPositionUpdate: onPositionUpdate, onConnectStart: onConnectStart, onToggleLock: onToggleLock, onClearConnections: onClearConnections);
-      case 'image': return ImageNodeWidget(note: note, isSelected: isSelected, onTap: onTap, onDelete: onDelete, onTitleChange: onTitleChange, onColorChange: onColorChange, onPositionUpdate: onPositionUpdate, onConnectStart: onConnectStart, onToggleLock: onToggleLock, onClearConnections: onClearConnections);
-      case 'file': return FileNodeWidget(note: note, isSelected: isSelected, onTap: onTap, onDelete: onDelete, onTitleChange: onTitleChange, onColorChange: onColorChange, onPositionUpdate: onPositionUpdate, onConnectStart: onConnectStart, onToggleLock: onToggleLock, onClearConnections: onClearConnections);
-      case 'voice': return VoiceNodeWidget(note: note, isSelected: isSelected, onTap: onTap, onDelete: onDelete, onTitleChange: onTitleChange, onColorChange: onColorChange, onMetadataChange: onMetadataChange, onPositionUpdate: onPositionUpdate, onConnectStart: onConnectStart, onToggleLock: onToggleLock, onClearConnections: onClearConnections);
-      default: return TextNodeWidget(note: note, isSelected: isSelected, onTap: onTap, onDelete: onDelete, onTitleChange: onTitleChange, onColorChange: onColorChange, onContentChange: onContentChange, onPositionUpdate: onPositionUpdate, onConnectStart: onConnectStart, onToggleLock: onToggleLock, onClearConnections: onClearConnections);
+      case 'visit': return VisitNoteNodeWidget(key: ValueKey(note.id), note: note, isSelected: isSelected, onTap: onTap, onDelete: onDelete, onTitleChange: onTitleChange, onColorChange: onColorChange, onMetadataChange: onMetadataChange, onPositionUpdate: onPositionUpdate, onConnectStart: onConnectStart, onToggleLock: onToggleLock, onClearConnections: onClearConnections);
+      case 'prescription': return PrescriptionNodeWidget(key: ValueKey(note.id), note: note, isSelected: isSelected, onTap: onTap, onDelete: onDelete, onTitleChange: onTitleChange, onColorChange: onColorChange, onMetadataChange: onMetadataChange, onPositionUpdate: onPositionUpdate, onConnectStart: onConnectStart, onToggleLock: onToggleLock, onClearConnections: onClearConnections);
+      case 'followup': return FollowupNodeWidget(key: ValueKey(note.id), note: note, isSelected: isSelected, onTap: onTap, onDelete: onDelete, onTitleChange: onTitleChange, onColorChange: onColorChange, onMetadataChange: onMetadataChange, onPositionUpdate: onPositionUpdate, onConnectStart: onConnectStart, onToggleLock: onToggleLock, onClearConnections: onClearConnections);
+      case 'alert': return AlertNodeWidget(key: ValueKey(note.id), note: note, isSelected: isSelected, onTap: onTap, onDelete: onDelete, onTitleChange: onTitleChange, onColorChange: onColorChange, onContentChange: onContentChange, onPositionUpdate: onPositionUpdate, onConnectStart: onConnectStart, onToggleLock: onToggleLock, onClearConnections: onClearConnections);
+      case 'todo': return TodoNodeWidget(key: ValueKey(note.id), note: note, isSelected: isSelected, onTap: onTap, onDelete: onDelete, onTitleChange: onTitleChange, onColorChange: onColorChange, onContentChange: onContentChange, onPositionUpdate: onPositionUpdate, onConnectStart: onConnectStart, onToggleLock: onToggleLock, onClearConnections: onClearConnections);
+      case 'image': return ImageNodeWidget(key: ValueKey(note.id), note: note, isSelected: isSelected, onTap: onTap, onDelete: onDelete, onTitleChange: onTitleChange, onColorChange: onColorChange, onPositionUpdate: onPositionUpdate, onConnectStart: onConnectStart, onToggleLock: onToggleLock, onClearConnections: onClearConnections);
+      case 'file': return FileNodeWidget(key: ValueKey(note.id), note: note, isSelected: isSelected, onTap: onTap, onDelete: onDelete, onTitleChange: onTitleChange, onColorChange: onColorChange, onPositionUpdate: onPositionUpdate, onConnectStart: onConnectStart, onToggleLock: onToggleLock, onClearConnections: onClearConnections);
+      case 'voice': return VoiceNodeWidget(key: ValueKey(note.id), note: note, isSelected: isSelected, onTap: onTap, onDelete: onDelete, onTitleChange: onTitleChange, onColorChange: onColorChange, onMetadataChange: onMetadataChange, onPositionUpdate: onPositionUpdate, onConnectStart: onConnectStart, onToggleLock: onToggleLock, onClearConnections: onClearConnections);
+      case 'materials': return MaterialUsageNodeWidget(key: ValueKey(note.id), note: note, isSelected: isSelected, onTap: onTap, onDelete: onDelete, onTitleChange: onTitleChange, onColorChange: onColorChange, onPositionUpdate: onPositionUpdate, onConnectStart: onConnectStart, onToggleLock: onToggleLock, onClearConnections: onClearConnections);
+      default: return TextNodeWidget(key: ValueKey(note.id), note: note, isSelected: isSelected, onTap: onTap, onDelete: onDelete, onTitleChange: onTitleChange, onColorChange: onColorChange, onContentChange: onContentChange, onPositionUpdate: onPositionUpdate, onConnectStart: onConnectStart, onToggleLock: onToggleLock, onClearConnections: onClearConnections);
     }
   }
 }

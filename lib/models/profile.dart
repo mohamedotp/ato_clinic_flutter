@@ -3,6 +3,7 @@ enum UserRole {
   doctor,
   receptionist,
   super_admin,
+  patient,
 }
 
 class Profile {

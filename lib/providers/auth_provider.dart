@@ -78,9 +78,19 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
         // Check if clinic is active and subscription is valid
         final status = await _authService.getClinicStatus(profile.clinicId!);
+        
+        // If status is null, we could be offline with no cache — block access
         if (status == null) {
-          await _authService.signOut();
-          state = AuthError('تعذر التحقق من حالة العيادة.');
+          // If the profile came from cache (offline), let them in with limited access
+          // Otherwise block them
+          final bool profileFromCache = _authService.isProfileFromCache(user.id);
+          if (!profileFromCache) {
+            await _authService.signOut();
+            state = AuthError('تعذر التحقق من حالة العيادة.');
+            return;
+          }
+          // Offline with cached profile — let them in
+          state = AuthAuthenticated(user, profile);
           return;
         }
 
@@ -108,8 +118,14 @@ class AuthNotifier extends StateNotifier<AuthState> {
     } catch (e) {
       print('=== ERROR LOADING PROFILE ===');
       print(e);
-      await _authService.signOut();
-      state = AuthError('حدث خطأ أثناء تحميل بياناتك: ${e.toString()}');
+      // Don't sign out on catch — could be a network error; try cached profile
+      final cachedProfile = _authService.getCachedProfileForUser(user.id);
+      if (cachedProfile != null) {
+        state = AuthAuthenticated(user, cachedProfile);
+      } else {
+        await _authService.signOut();
+        state = AuthError('حدث خطأ أثناء تحميل بياناتك: ${e.toString()}');
+      }
     }
   }
 
